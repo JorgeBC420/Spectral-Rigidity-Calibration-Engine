@@ -1,0 +1,83 @@
+# ============================================================
+# .gitignore — Riemann Spectral Analysis Framework
+# ============================================================
+
+# ── Visual Studio / VS Code ─────────────────────────────────
+.vs/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.pyproj.user
+
+# ── Python ──────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+.installed.cfg
+
+# ── Entornos virtuales ───────────────────────────────────────
+env/
+venv/
+.env
+.venv
+ENV/
+
+# ── Numba JIT cache ─────────────────────────────────────────
+.numba_cache/
+__numba_cache__/
+
+# ── Datos generados / caché científico ───────────────────────
+# Los ceros se recalculan con mpmath — no commitear
+cache_ceros_riemann.pkl
+cache_ceros_riemann.npy
+*.pkl
+
+# Base de datos de bitácora (generada en runtime)
+bitacora_riemann.db
+bitacora_*.db
+
+# Exports JSON de bitácora (demasiado voluminosos para git)
+bitacora_export.json
+bitacora_export_*.json
+
+# ── Outputs de experimentos ──────────────────────────────────
+*.png
+*.svg
+*.pdf
+analisis_espaciado_vs_N.png
+evolucion_dmin.png
+rigidez_espectral_protocolo.png
+
+# ── Jupyter ──────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ── Pytest / Coverage ────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# ── MyPy / Pyright ───────────────────────────────────────────
+.mypy_cache/
+.pyright/
+
+# ── OS ───────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Archivos temporales ──────────────────────────────────────
+*.tmp
+*.bak
+*.swp
+*~
