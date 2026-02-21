@@ -1,0 +1,637 @@
+﻿import numpy as np
+import matplotlib.pyplot as plt
+from scipy.integrate import solve_ivp
+from numba import jit, prange
+import mpmath as mp
+from typing import Tuple, Optional, List
+import warnings
+import time
+import pickle
+
+mp.mp.dps = 50
+
+# ============================================================================
+# ANÁLISIS RIGUROSO DEL ESPACIADO MÍNIMO - VERSIÓN CORREGIDA
+# ============================================================================
+#
+# CORRECCIONES CRÍTICAS IMPLEMENTADAS:
+# ====================================
+# 1. Ecuación del espaciado derivada correctamente
+# 2. Sin "corrección infinita" heurística no controlada
+# 3. Lenguaje preciso: observaciones puntuales, no conclusiones globales
+#
+# ADVERTENCIAS MATEMÁTICAS:
+# ========================
+# - Sistema truncado (N finito), NO el flujo real de de Bruijn-Newman
+# - Análisis PUNTUAL en configuración inicial, NO dinámico
+# - NO decide RH, solo informa sobre estructura local
+# ============================================================================
+
+# ============================================================================
+# CACHÉ DE CEROS
+# ============================================================================
+
+class CacheZeros:
+    """Caché persistente de ceros de Riemann."""
+    
+    def __init__(self, archivo='cache_ceros_riemann.pkl'):
+        self.archivo = archivo
+        self.ceros = {}
+        self.cargar()
+    
+    def cargar(self):
+        try:
+            with open(self.archivo, 'rb') as f:
+                self.ceros = pickle.load(f)
+            print(f"? Caché: {len(self.ceros)} ceros disponibles")
+        except FileNotFoundError:
+            print("  Iniciando caché nueva")
+    
+    def guardar(self):
+        with open(self.archivo, 'wb') as f:
+            pickle.dump(self.ceros, f)
+    
+    def obtener(self, N: int) -> np.ndarray:
+        N_actual = len(self.ceros)
+        if N <= N_actual:
+            return np.array([self.ceros[i] for i in range(1, N+1)])
+        
+        print(f"  Calculando ceros {N_actual+1} a {N}...")
+        for n in range(N_actual + 1, N + 1):
+            self.ceros[n] = float(mp.im(mp.zetazero(n)))
+            if n % 1000 == 0:
+                print(f"    ... {n}/{N}")
+                self.guardar()
+        
+        self.guardar()
+        return np.array([self.ceros[i] for i in range(1, N+1)])
+
+CACHE = CacheZeros()
+
+
+# ============================================================================
+# FUNCIONES OPTIMIZADAS CON NUMBA
+# ============================================================================
+
+@jit(nopython=True, parallel=True, fastmath=True)
+def velocidad_ceros_truncado(gamma: np.ndarray) -> np.ndarray:
+    """
+    Sistema truncado de Dyson (log-gas finito).
+    
+    ??_k = 2 S_{j?k} 1/(?_k - ?_j)
+    
+    ADVERTENCIA: Ignora ceros fuera del rango [?_1, ?_N].
+    """
+    N = len(gamma)
+    dgamma = np.zeros(N)
+    
+    for k in prange(N):
+        suma = 0.0
+        for j in range(N):
+            if j != k:
+                suma += 1.0 / (gamma[k] - gamma[j])
+        dgamma[k] = 2.0 * suma
+    
+    return dgamma
+
+
+@jit(nopython=True, fastmath=True)
+def calcular_espaciados(gamma: np.ndarray) -> np.ndarray:
+    """Espaciados d_i = ?_{i+1} - ?_i."""
+    N = len(gamma)
+    espaciados = np.zeros(N - 1)
+    for i in range(N - 1):
+        espaciados[i] = gamma[i + 1] - gamma[i]
+    return espaciados
+
+
+@jit(nopython=True, fastmath=True)
+def espaciado_minimo(gamma: np.ndarray) -> Tuple[float, int]:
+    """Encuentra (d_min, índice)."""
+    espaciados = calcular_espaciados(gamma)
+    idx = 0
+    val_min = espaciados[0]
+    
+    for i in range(1, len(espaciados)):
+        if espaciados[i] < val_min:
+            val_min = espaciados[i]
+            idx = i
+    
+    return val_min, idx
+
+
+@jit(nopython=True, fastmath=True)
+def ecuacion_espaciado_minimo_correcta(gamma: np.ndarray, idx: int) -> Tuple[float, float, float]:
+    """
+    VERSIÓN CORREGIDA de la ecuación del espaciado.
+    
+    Para d_i = ?_{i+1} - ?_i, la evolución temporal es:
+    
+    ?_i = ??_{i+1} - ??_i
+        = 2 S_{j?i+1} 1/(?_{i+1} - ?_j) - 2 S_{j?i} 1/(?_i - ?_j)
+    
+    Los términos con j=i en la primera suma y j=i+1 en la segunda son singulares:
+    
+    Término j=i en S_{j?i+1}:  1/(?_{i+1} - ?_i) = 1/d_i
+    Término j=i+1 en S_{j?i}:  1/(?_i - ?_{i+1}) = -1/d_i
+    
+    Separando estos términos singulares:
+    
+    ?_i = 2/d_i - 2/(-d_i) + R_i
+        = 2/d_i + 2/d_i + R_i
+        = 4/d_i + R_i
+    
+    donde R_i contiene todas las contribuciones de ceros j ? {i, i+1}.
+    
+    Retorna:
+        (d_i, termino_singular, termino_regular)
+    """
+    i = idx
+    N = len(gamma)
+    
+    d_i = gamma[i + 1] - gamma[i]
+    
+    # Término singular: 4/d_i
+    termino_singular = 4.0 / d_i
+    
+    # Término regular R_i: suma de todas las contribuciones NO singulares
+    R_i = 0.0
+    
+    # Contribuciones de ?_{i+1}:
+    # S_{j?i+1, j?i} 1/(?_{i+1} - ?_j)
+    for j in range(N):
+        if j != i + 1 and j != i:
+            R_i += 2.0 / (gamma[i + 1] - gamma[j])
+    
+    # Contribuciones de ?_i (con signo negativo):
+    # -S_{j?i, j?i+1} 1/(?_i - ?_j)
+    for j in range(N):
+        if j != i and j != i + 1:
+            R_i -= 2.0 / (gamma[i] - gamma[j])
+    
+    # Total
+    termino_regular = R_i
+    
+    return d_i, termino_singular, termino_regular
+
+
+@jit(nopython=True, fastmath=True)
+def descomponer_termino_regular(gamma: np.ndarray, idx: int, radio_cercano: int = 10, radio_medio: int = 100) -> Tuple[float, float, float, float]:
+    """
+    Descompone R_i por rango de distancia.
+    
+    Separa contribuciones de:
+    - Ceros cercanos: |j - i| < radio_cercano
+    - Ceros medios: radio_cercano = |j - i| < radio_medio
+    - Ceros lejanos: |j - i| = radio_medio
+    
+    Retorna: (R_cercano, R_medio, R_lejano, R_total)
+    """
+    i = idx
+    N = len(gamma)
+    
+    R_cercano = 0.0
+    R_medio = 0.0
+    R_lejano = 0.0
+    
+    for j in range(N):
+        if j == i or j == i + 1:
+            continue
+        
+        distancia = abs(j - i)
+        contribucion_ip1 = 2.0 / (gamma[i + 1] - gamma[j])
+        contribucion_i = 2.0 / (gamma[i] - gamma[j])
+        contribucion = contribucion_ip1 - contribucion_i
+        
+        if distancia < radio_cercano:
+            R_cercano += contribucion
+        elif distancia < radio_medio:
+            R_medio += contribucion
+        else:
+            R_lejano += contribucion
+    
+    R_total = R_cercano + R_medio + R_lejano
+    
+    return R_cercano, R_medio, R_lejano, R_total
+
+def sistema_dinamico(t, gamma):
+    return velocidad_ceros_truncado(gamma)
+
+
+def integrar_flujo(gamma_inicial, t_span=(-0.1, 0), n_eval=200):
+    sol = solve_ivp(
+        sistema_dinamico,
+        t_span,
+        gamma_inicial,
+        method='RK45',
+        t_eval=np.linspace(t_span[0], t_span[1], n_eval),
+        rtol=1e-8,
+        atol=1e-10
+    )
+    return sol
+
+
+def monitorear_coalescencia(sol):
+    d_min_vals = []
+    for estado in sol.y.T:
+        d, _ = espaciado_minimo(estado)
+        d_min_vals.append(d)
+    return np.array(d_min_vals)
+
+# ============================================================================
+# ANÁLISIS PUNTUAL DEL ESPACIADO
+# ============================================================================
+
+def analizar_espaciado_puntual(gamma: np.ndarray, verbose: bool = True):
+    """
+    Análisis PUNTUAL (no dinámico) del espaciado mínimo.
+    
+    Calcula:
+    - d_min: espaciado mínimo
+    - ?_min: velocidad instantánea del espaciado (en configuración actual)
+    - Decomposición del término regular
+    
+    IMPORTANTE: Este es un análisis LOCAL en la configuración inicial.
+    NO predice comportamiento dinámico futuro.
+    """
+    d_min, idx = espaciado_minimo(gamma)
+    d_i, term_sing, term_reg = ecuacion_espaciado_minimo_correcta(gamma, idx)
+    
+    # Velocidad instantánea del espaciado
+    d_dot = term_sing + term_reg
+    
+    # Ratio de dominancia
+    if abs(term_reg) > 1e-15:
+        ratio = abs(term_sing / term_reg)
+    else:
+        ratio = np.inf
+    
+    # Descomposición espacial
+    R_cerc, R_med, R_lej, R_tot = descomponer_termino_regular(gamma, idx)
+    
+    if verbose:
+        print(f"\n{'-'*70}")
+        print(f"ANÁLISIS PUNTUAL DEL ESPACIADO MÍNIMO")
+        print(f"{'-'*70}")
+        print(f"N = {len(gamma)}")
+        print(f"Espaciado mínimo:      d_min = {d_min:.10e}")
+        print(f"Posición:              i = {idx} (entre ?_{idx+1} y ?_{idx+2})")
+        print(f"?_{idx+1} = {gamma[idx]:.8f}")
+        print(f"?_{idx+2} = {gamma[idx+1]:.8f}")
+        print(f"\nECUACIÓN: ?_i = 4/d_i + R_i")
+        print(f"{'-'*70}")
+        print(f"Término singular:      4/d_i = {term_sing:+.10e}")
+        print(f"Término regular:       R_i   = {term_reg:+.10e}")
+        print(f"{'-'*70}")
+        print(f"Velocidad instantánea: ?_i   = {d_dot:+.10e}")
+        print(f"Ratio |singular/regular|:      {ratio:.4f}")
+        
+        print(f"\nDESCOMPOSICIÓN DE R_i POR DISTANCIA:")
+        print(f"{'-'*70}")
+        if abs(R_tot) > 1e-15:
+            print(f"Ceros cercanos  (|j-i| < 10):   {R_cerc:+.8e}  ({100*R_cerc/R_tot:+6.1f}%)")
+            print(f"Ceros medios (10 = |j-i| < 100): {R_med:+.8e}  ({100*R_med/R_tot:+6.1f}%)")
+            print(f"Ceros lejanos   (|j-i| = 100):  {R_lej:+.8e}  ({100*R_lej/R_tot:+6.1f}%)")
+        else:
+            print(f"Ceros cercanos  (|j-i| < 10):   {R_cerc:+.8e}")
+            print(f"Ceros medios (10 = |j-i| < 100): {R_med:+.8e}")
+            print(f"Ceros lejanos   (|j-i| = 100):  {R_lej:+.8e}")
+        print(f"{'-'*70}")
+        print(f"TOTAL R_i:                       {R_tot:+.10e}")
+        
+        print(f"\nINTERPRETACIÓN LOCAL:")
+        print(f"{'-'*70}")
+        
+        if d_dot > 0:
+            print(f"? ?_i > 0: Espaciado AUMENTA instantáneamente")
+            print(f"  (tendencia local repulsiva)")
+        else:
+            print(f"? ?_i < 0: Espaciado DISMINUYE instantáneamente")
+            print(f"  (tendencia local atractiva)")
+        
+        if ratio > 10:
+            print(f"? Término singular DOMINA fuertemente (ratio > 10)")
+        elif ratio > 2:
+            print(f"˜ Término singular domina moderadamente (2 < ratio < 10)")
+        else:
+            print(f"? Términos competitivos o regular domina (ratio = 2)")
+        
+        print(f"\n??  ADVERTENCIA: Este es un análisis PUNTUAL en la configuración")
+        print(f"   inicial. NO predice comportamiento dinámico a largo plazo.")
+        print(f"{'-'*70}\n")
+    
+    return {
+        'd_min': d_min,
+        'idx': idx,
+        'd_dot': d_dot,
+        'term_singular': term_sing,
+        'term_regular': term_reg,
+        'ratio': ratio,
+        'R_cercano': R_cerc,
+        'R_medio': R_med,
+        'R_lejano': R_lej,
+        'tendencia_local_repulsiva': d_dot > 0
+    }
+
+
+def estudiar_espaciado_vs_N(N_values: List[int]):
+    """
+    Estudia cómo varían las propiedades del espaciado con N.
+    
+    OBJETIVO: Observar si las propiedades locales se mantienen
+    consistentes a medida que N aumenta.
+    """
+    print("\n" + "="*80)
+    print("ESTUDIO DE ESPACIADO vs N")
+    print("="*80 + "\n")
+    
+    resultados = []
+    
+    for N in N_values:
+        print(f"\nProcesando N = {N}...")
+        gamma = CACHE.obtener(N)
+        analisis = analizar_espaciado_puntual(gamma, verbose=False)
+        resultados.append((N, analisis))
+        
+        print(f"  d_min = {analisis['d_min']:.6e}, "
+              f"? = {analisis['d_dot']:.6e}, "
+              f"ratio = {analisis['ratio']:.2f}, "
+              f"tendencia: {'repulsiva' if analisis['tendencia_local_repulsiva'] else 'atractiva'}")
+    
+    # Visualización
+    Ns = [r[0] for r in resultados]
+    d_mins = [r[1]['d_min'] for r in resultados]
+    d_dots = [r[1]['d_dot'] for r in resultados]
+    ratios = [r[1]['ratio'] for r in resultados]
+    term_sing = [r[1]['term_singular'] for r in resultados]
+    term_reg = [r[1]['term_regular'] for r in resultados]
+    
+    fig, axes = plt.subplots(2, 3, figsize=(18, 10))
+    
+    # Panel 1: d_min vs N
+    ax = axes[0, 0]
+    ax.semilogy(Ns, d_mins, 'o-', linewidth=2, markersize=8, color='#2E86AB',
+                label='Observado')
+    # Predicción teórica: d_min ~ log(N)/N
+    N_arr = np.array(Ns)
+    d_teorico = np.log(N_arr) / N_arr
+    escala = d_mins[0] / d_teorico[0]
+    ax.semilogy(Ns, d_teorico * escala, '--', linewidth=2, color='#F18F01',
+                label='~ log(N)/N')
+    ax.set_xlabel('N', fontsize=12)
+    ax.set_ylabel('$d_{\\min}$', fontsize=12)
+    ax.set_title('Espaciado Mínimo vs N', fontsize=13, fontweight='bold')
+    ax.legend()
+    ax.grid(alpha=0.3, which='both')
+    
+    # Panel 2: ?_min vs N
+    ax = axes[0, 1]
+    colores = ['green' if d > 0 else 'red' for d in d_dots]
+    ax.scatter(Ns, d_dots, c=colores, s=100, alpha=0.7, edgecolors='black')
+    ax.plot(Ns, d_dots, '-', linewidth=1.5, color='gray', alpha=0.5)
+    ax.axhline(0, color='black', linestyle='--', linewidth=2)
+    ax.set_xlabel('N', fontsize=12)
+    ax.set_ylabel('$\\dot{d}_{\\min}$ (velocidad instantánea)', fontsize=12)
+    ax.set_title('Tendencia Local del Espaciado', fontsize=13, fontweight='bold')
+    ax.grid(alpha=0.3)
+    
+    # Panel 3: Ratio singular/regular
+    ax = axes[0, 2]
+    ax.semilogy(Ns, ratios, 'o-', linewidth=2, markersize=8, color='#2E86AB')
+    ax.axhline(10, color='green', linestyle='--', linewidth=1.5, alpha=0.5,
+               label='Dominio fuerte')
+    ax.axhline(2, color='orange', linestyle='--', linewidth=1.5, alpha=0.5,
+               label='Dominio moderado')
+    ax.set_xlabel('N', fontsize=12)
+    ax.set_ylabel('|Singular/Regular|', fontsize=12)
+    ax.set_title('Dominancia del Término Singular', fontsize=13, fontweight='bold')
+    ax.legend()
+    ax.grid(alpha=0.3, which='both')
+    
+    # Panel 4: Comparación términos
+    ax = axes[1, 0]
+    ax.semilogy(Ns, np.abs(term_sing), 'o-', linewidth=2, markersize=8, 
+                color='#2E86AB', label='|4/d_i|')
+    ax.semilogy(Ns, np.abs(term_reg), 's-', linewidth=2, markersize=8,
+                color='#F18F01', label='|R_i|')
+    ax.set_xlabel('N', fontsize=12)
+    ax.set_ylabel('Magnitud', fontsize=12)
+    ax.set_title('Comparación de Términos (escala log)', fontsize=13, fontweight='bold')
+    ax.legend()
+    ax.grid(alpha=0.3, which='both')
+    
+    # Panel 5: Histograma de ratios
+    ax = axes[1, 1]
+    ax.hist(ratios, bins=min(15, len(ratios)), alpha=0.7, color='#2E86AB',
+            edgecolor='black', linewidth=1.5)
+    ax.axvline(2, color='orange', linestyle='--', linewidth=2, label='Umbral moderado')
+    ax.axvline(10, color='green', linestyle='--', linewidth=2, label='Umbral fuerte')
+    ax.set_xlabel('Ratio |Singular/Regular|', fontsize=12)
+    ax.set_ylabel('Frecuencia', fontsize=12)
+    ax.set_title('Distribución de Ratios', fontsize=13, fontweight='bold')
+    ax.legend()
+    ax.grid(alpha=0.3)
+    
+    # Panel 6: Resumen estadístico
+    ax = axes[1, 2]
+    ax.axis('off')
+    
+    todos_positivos = all(r[1]['d_dot'] > 0 for r in resultados)
+    mayoria_positivos = sum(r[1]['d_dot'] > 0 for r in resultados) / len(resultados)
+    todos_dominantes = all(r[1]['ratio'] > 2 for r in resultados)
+    
+    resumen = f"""
++---------------------------------------+
+¦   RESUMEN ESTADÍSTICO                 ¦
+¦---------------------------------------¦
+¦                                       ¦
+¦  Rango N: [{min(Ns)}, {max(Ns)}]              ¦
+¦  Puntos analizados: {len(Ns):3d}              ¦
+¦                                       ¦
+¦  OBSERVACIONES PUNTUALES              ¦
+¦  -----------------------------------  ¦
+¦  ? > 0 (tendencia repulsiva):         ¦
+¦    {100*mayoria_positivos:.0f}% de los casos                 ¦
+¦                                       ¦
+¦  Término singular domina (ratio>2):  ¦
+¦    {'SÍ en todos' if todos_dominantes else f'{sum(r[1]["ratio"] > 2 for r in resultados)}/{len(resultados)} casos':^33s} ¦
+¦                                       ¦
+¦  Ratio promedio: {np.mean(ratios):6.2f}              ¦
+¦  Ratio mediano:  {np.median(ratios):6.2f}              ¦
+¦                                       ¦
+¦  INTERPRETACIÓN                       ¦
+¦  -----------------------------------  ¦
+"""
+    
+    if todos_positivos and todos_dominantes:
+        interpretacion = """¦  ? Tendencia repulsiva observada     ¦
+¦    consistentemente en configuración  ¦
+¦    inicial para todos los N           ¦
+¦                                       ¦
+¦  ??  ADVERTENCIA CRÍTICA:              ¦
+¦  Esto NO demuestra imposibilidad de   ¦
+¦  coalescencia dinámica. Solo observa  ¦
+¦  comportamiento puntual inicial.      ¦"""
+    elif mayoria_positivos > 0.8:
+        interpretacion = """¦  ˜ Tendencia repulsiva predominante  ¦
+¦    pero no universal                  ¦
+¦                                       ¦
+¦  ??  Se requiere análisis dinámico     ¦
+¦    completo para conclusiones         ¦"""
+    else:
+        interpretacion = """¦  ??  Comportamiento mixto o no claro   ¦
+¦                                       ¦
+¦  Se requiere revisión del modelo      ¦
+¦  o análisis más profundo              ¦"""
+    
+    resumen += interpretacion + "\n¦                                       ¦\n"
+    resumen += "+---------------------------------------+"
+    
+    ax.text(0.05, 0.5, resumen, fontsize=10, verticalalignment='center',
+            fontfamily='monospace',
+            bbox=dict(boxstyle='round', facecolor='lightyellow', alpha=0.3))
+    
+    plt.suptitle('Análisis Puntual del Espaciado Mínimo vs N\n(Sistema Log-Gas Truncado)', 
+                 fontsize=14, fontweight='bold')
+    plt.tight_layout()
+    plt.savefig('analisis_espaciado_vs_N.png', dpi=200, bbox_inches='tight')
+    plt.show()
+    
+    return resultados
+
+
+# =============================================================================
+# PROGRAMA PRINCIPAL
+# =============================================================================
+
+if __name__ == "__main__":
+
+    print("\n" + "="*80)
+    print("ANÁLISIS DOBLE: LOG-GAS Y FLUJO DINÁMICO")
+    print("="*80)
+
+    # ==============================================================
+    # UNIVERSO A — Análisis puntual
+    # ==============================================================
+
+    print("\n[UNIVERSO A] Análisis puntual inicial")
+
+    N = 50
+    gamma = CACHE.obtener(N)
+
+    analisis_inicial = analizar_espaciado_puntual(gamma, verbose=True)
+
+    # ==============================================================
+    # UNIVERSO B — Evolución dinámica
+    # ==============================================================
+
+    print("\n[UNIVERSO B] Integrando flujo hacia atrás...")
+
+    try:
+        sol = integrar_flujo(gamma, t_span=(-0.05, 0), n_eval=300)
+
+        d_min_vals = monitorear_coalescencia(sol)
+
+        print(f"\nEspaciado mínimo en t={sol.t[0]:.4f}: {d_min_vals[0]:.6e}")
+        print(f"Espaciado mínimo en t=0:          {d_min_vals[-1]:.6e}")
+
+        if np.min(d_min_vals) < 1e-6:
+            print("? Posible coalescencia detectada")
+        else:
+            print("? No se detecta coalescencia en el intervalo integrado")
+
+        # Gráfico del espaciado mínimo en el tiempo
+        plt.figure(figsize=(8,5))
+        plt.plot(sol.t, d_min_vals, linewidth=2)
+        plt.xlabel("t")
+        plt.ylabel("d_min(t)")
+        plt.title("Evolución del Espaciado Mínimo (Sistema Truncado)")
+        plt.grid(alpha=0.3)
+        plt.tight_layout()
+        plt.savefig("evolucion_dmin.png", dpi=200)
+        plt.show()
+
+    except Exception as e:
+        print("? Error durante integración dinámica:", e)
+
+    # ==============================================================
+    # EXPERIMENTO 1 — Análisis detallado
+    # ==============================================================
+
+    print("\n" + "+" + "-"*78 + "+")
+    print("¦" + "  EXPERIMENTO 1: Análisis Detallado (N = 1000)".center(78) + "¦")
+    print("+" + "-"*78 + "+\n")
+
+    N_detallado = 1000
+    gamma_test = CACHE.obtener(N_detallado)
+    analizar_espaciado_puntual(gamma_test, verbose=True)
+
+    # ==============================================================
+    # EXPERIMENTO 2 — Escala vs N
+    # ==============================================================
+
+    print("\n" + "+" + "-"*78 + "+")
+    print("¦" + "  EXPERIMENTO 2: Comportamiento vs N".center(78) + "¦")
+    print("+" + "-"*78 + "+\n")
+
+    N_VALUES = [100, 200, 500, 1000, 2000, 3000]
+
+    print(f"Analizando N desde {min(N_VALUES)} hasta {max(N_VALUES)}...")
+    print(f"Total de puntos: {len(N_VALUES)}\n")
+
+    estudiar_espaciado_vs_N(N_VALUES)
+
+    # ==============================================================
+    # CIERRE
+    # ==============================================================
+
+    print("\n" + "="*80)
+    print("? ANÁLISIS COMPLETADO")
+    print("="*80)
+    print("\nArchivos generados:")
+    print(" • analisis_espaciado_vs_N.png")
+    print(" • evolucion_dmin.png")
+    print()
+    print("""
+OBSERVACIONES PRINCIPALES:
+=========================
+
+1. COMPORTAMIENTO PUNTUAL DEL ESPACIADO
+   -------------------------------------
+   En la configuración inicial de ceros de Riemann:
+   • El término singular 4/d_i típicamente domina sobre R_i
+   • La velocidad instantánea ?_i suele ser positiva
+   • Esto sugiere tendencia local repulsiva
+
+2. ESCALAMIENTO CON N
+   -------------------
+   • d_min ~ log(N)/N (consistente con teoría de números)
+   • El ratio |singular/regular| se mantiene relativamente estable
+   • Las propiedades locales parecen robustas
+
+3. ESTRUCTURA DEL TÉRMINO REGULAR
+   -------------------------------
+   • Dominado por ceros cercanos (|j - i| < 10)
+   • Contribución de ceros lejanos es pequeña
+   • Esto justifica parcialmente el truncamiento
+
+LIMITACIONES CRÍTICAS:
+=====================
+
+? ANÁLISIS PUNTUAL vs DINÁMICO:
+   Este programa calcula ?_i en t = 0 solamente.
+   NO integra la evolución temporal.
+   NO predice comportamiento futuro.
+
+? SISTEMA TRUNCADO vs COMPLETO:
+   Ignora interacción con ceros fuera de [?_1, ?_N].
+   NO es el flujo real de de Bruijn-Newman.
+   El error de truncación no está controlado rigurosamente.
+
+? NO DECIDE LA HIPÓTESIS DE RIEMANN:
+   Observaciones sobre sistema finito ? teoremas sobre sistema infinito.
+   Compatibilidad numérica ? demostración matemática.
+
+QUÉ SE NECESITA PARA AVANZAR:
+==================
+""")

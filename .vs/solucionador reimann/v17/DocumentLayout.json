@@ -1,0 +1,173 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{CF4909E5-EEBD-4C72-B871-AF7EED4BCB0C}|solucionador reimann\\solucionador reimann.pyproj|C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\solucionador_reimann.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{CF4909E5-EEBD-4C72-B871-AF7EED4BCB0C}|solucionador reimann\\solucionador reimann.pyproj|solutionrelative:solucionador reimann\\solucionador_reimann.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{CF4909E5-EEBD-4C72-B871-AF7EED4BCB0C}|solucionador reimann\\solucionador reimann.pyproj|C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\rigidez_espectral.py||{8B382828-6202-11D1-8870-0000F87579D2}|",
+      "RelativeMoniker": "D:0:0:{CF4909E5-EEBD-4C72-B871-AF7EED4BCB0C}|solucionador reimann\\solucionador reimann.pyproj|solutionrelative:solucionador reimann\\rigidez_espectral.py||{8B382828-6202-11D1-8870-0000F87579D2}|"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{CF4909E5-EEBD-4C72-B871-AF7EED4BCB0C}|solucionador reimann\\solucionador reimann.pyproj|C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\README_PROTOCOLO_RIGIDEZ.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}|",
+      "RelativeMoniker": "D:0:0:{CF4909E5-EEBD-4C72-B871-AF7EED4BCB0C}|solucionador reimann\\solucionador reimann.pyproj|solutionrelative:solucionador reimann\\README_PROTOCOLO_RIGIDEZ.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}|"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{CF4909E5-EEBD-4C72-B871-AF7EED4BCB0C}|solucionador reimann\\solucionador reimann.pyproj|C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\AUDITORIA_SEGURIDAD.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}|",
+      "RelativeMoniker": "D:0:0:{CF4909E5-EEBD-4C72-B871-AF7EED4BCB0C}|solucionador reimann\\solucionador reimann.pyproj|solutionrelative:solucionador reimann\\AUDITORIA_SEGURIDAD.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}|"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{CF4909E5-EEBD-4C72-B871-AF7EED4BCB0C}|solucionador reimann\\solucionador reimann.pyproj|C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\TEST_SUITE.py||{8B382828-6202-11D1-8870-0000F87579D2}|",
+      "RelativeMoniker": "D:0:0:{CF4909E5-EEBD-4C72-B871-AF7EED4BCB0C}|solucionador reimann\\solucionador reimann.pyproj|solutionrelative:solucionador reimann\\TEST_SUITE.py||{8B382828-6202-11D1-8870-0000F87579D2}|"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{CF4909E5-EEBD-4C72-B871-AF7EED4BCB0C}|solucionador reimann\\solucionador reimann.pyproj|C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\RESUMEN_IMPLEMENTACION.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}|",
+      "RelativeMoniker": "D:0:0:{CF4909E5-EEBD-4C72-B871-AF7EED4BCB0C}|solucionador reimann\\solucionador reimann.pyproj|solutionrelative:solucionador reimann\\RESUMEN_IMPLEMENTACION.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}|"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{CF4909E5-EEBD-4C72-B871-AF7EED4BCB0C}|solucionador reimann\\solucionador reimann.pyproj|C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\CHANGELOG.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}|",
+      "RelativeMoniker": "D:0:0:{CF4909E5-EEBD-4C72-B871-AF7EED4BCB0C}|solucionador reimann\\solucionador reimann.pyproj|solutionrelative:solucionador reimann\\CHANGELOG.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}|"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{CF4909E5-EEBD-4C72-B871-AF7EED4BCB0C}|solucionador reimann\\solucionador reimann.pyproj|C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\INDICE_COMPLETO.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}|",
+      "RelativeMoniker": "D:0:0:{CF4909E5-EEBD-4C72-B871-AF7EED4BCB0C}|solucionador reimann\\solucionador reimann.pyproj|solutionrelative:solucionador reimann\\INDICE_COMPLETO.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}|"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{CF4909E5-EEBD-4C72-B871-AF7EED4BCB0C}|solucionador reimann\\solucionador reimann.pyproj|C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\QUICKSTART.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}|",
+      "RelativeMoniker": "D:0:0:{CF4909E5-EEBD-4C72-B871-AF7EED4BCB0C}|solucionador reimann\\solucionador reimann.pyproj|solutionrelative:solucionador reimann\\QUICKSTART.md||{EFC0BB08-EA7D-40C6-A696-C870411A895B}|"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 4,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "TEST_SUITE.py",
+              "DocumentMoniker": "C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\TEST_SUITE.py",
+              "RelativeDocumentMoniker": "solucionador reimann\\TEST_SUITE.py",
+              "ToolTip": "C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\TEST_SUITE.py",
+              "RelativeToolTip": "solucionador reimann\\TEST_SUITE.py",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAANwAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.002457|",
+              "WhenOpened": "2026-02-15T19:53:09.521Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "AUDITORIA_SEGURIDAD.md",
+              "DocumentMoniker": "C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\AUDITORIA_SEGURIDAD.md",
+              "RelativeDocumentMoniker": "solucionador reimann\\AUDITORIA_SEGURIDAD.md",
+              "ToolTip": "C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\AUDITORIA_SEGURIDAD.md",
+              "RelativeToolTip": "solucionador reimann\\AUDITORIA_SEGURIDAD.md",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAACMBAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
+              "WhenOpened": "2026-02-15T19:52:46.452Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "README_PROTOCOLO_RIGIDEZ.md",
+              "DocumentMoniker": "C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\README_PROTOCOLO_RIGIDEZ.md",
+              "RelativeDocumentMoniker": "solucionador reimann\\README_PROTOCOLO_RIGIDEZ.md",
+              "ToolTip": "C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\README_PROTOCOLO_RIGIDEZ.md",
+              "RelativeToolTip": "solucionador reimann\\README_PROTOCOLO_RIGIDEZ.md",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABEBAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
+              "WhenOpened": "2026-02-15T19:27:40.775Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "rigidez_espectral.py",
+              "DocumentMoniker": "C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\rigidez_espectral.py",
+              "RelativeDocumentMoniker": "solucionador reimann\\rigidez_espectral.py",
+              "ToolTip": "C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\rigidez_espectral.py",
+              "RelativeToolTip": "solucionador reimann\\rigidez_espectral.py",
+              "ViewState": "AgIAAG4BAAAAAAAAAIBJwHcDAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.002457|",
+              "WhenOpened": "2026-02-15T19:26:44.761Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "solucionador_reimann.py",
+              "DocumentMoniker": "C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\solucionador_reimann.py",
+              "RelativeDocumentMoniker": "solucionador reimann\\solucionador_reimann.py",
+              "ToolTip": "C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\solucionador_reimann.py",
+              "RelativeToolTip": "solucionador reimann\\solucionador_reimann.py",
+              "ViewState": "AgIAAAoAAAAAAAAAAAD4vxQAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.002457|",
+              "WhenOpened": "2026-02-12T20:13:27.331Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 8,
+              "Title": "QUICKSTART.md",
+              "DocumentMoniker": "C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\QUICKSTART.md",
+              "RelativeDocumentMoniker": "solucionador reimann\\QUICKSTART.md",
+              "ToolTip": "C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\QUICKSTART.md",
+              "RelativeToolTip": "solucionador reimann\\QUICKSTART.md",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAgBAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
+              "WhenOpened": "2026-02-15T19:55:38.13Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
+              "Title": "INDICE_COMPLETO.md",
+              "DocumentMoniker": "C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\INDICE_COMPLETO.md",
+              "RelativeDocumentMoniker": "solucionador reimann\\INDICE_COMPLETO.md",
+              "ToolTip": "C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\INDICE_COMPLETO.md",
+              "RelativeToolTip": "solucionador reimann\\INDICE_COMPLETO.md",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAHoBAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
+              "WhenOpened": "2026-02-15T19:55:02.821Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "CHANGELOG.md",
+              "DocumentMoniker": "C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\CHANGELOG.md",
+              "RelativeDocumentMoniker": "solucionador reimann\\CHANGELOG.md",
+              "ToolTip": "C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\CHANGELOG.md",
+              "RelativeToolTip": "solucionador reimann\\CHANGELOG.md",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAICAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
+              "WhenOpened": "2026-02-15T19:54:30.268Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "RESUMEN_IMPLEMENTACION.md",
+              "DocumentMoniker": "C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\RESUMEN_IMPLEMENTACION.md",
+              "RelativeDocumentMoniker": "solucionador reimann\\RESUMEN_IMPLEMENTACION.md",
+              "ToolTip": "C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\RESUMEN_IMPLEMENTACION.md",
+              "RelativeToolTip": "solucionador reimann\\RESUMEN_IMPLEMENTACION.md",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAK8BAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001818|",
+              "WhenOpened": "2026-02-15T19:53:47.779Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

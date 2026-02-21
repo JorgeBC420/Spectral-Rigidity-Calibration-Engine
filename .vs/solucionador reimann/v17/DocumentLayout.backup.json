@@ -1,0 +1,37 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{CF4909E5-EEBD-4C72-B871-AF7EED4BCB0C}|solucionador reimann\\solucionador reimann.pyproj|C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\solucionador_reimann.py||{8B382828-6202-11D1-8870-0000F87579D2}",
+      "RelativeMoniker": "D:0:0:{CF4909E5-EEBD-4C72-B871-AF7EED4BCB0C}|solucionador reimann\\solucionador reimann.pyproj|solutionrelative:solucionador reimann\\solucionador_reimann.py||{8B382828-6202-11D1-8870-0000F87579D2}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "solucionador_reimann.py",
+              "DocumentMoniker": "C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\solucionador_reimann.py",
+              "RelativeDocumentMoniker": "solucionador reimann\\solucionador_reimann.py",
+              "ToolTip": "C:\\Users\\bjorg\\source\\repos\\solucionador reimann\\solucionador reimann\\solucionador_reimann.py",
+              "RelativeToolTip": "solucionador reimann\\solucionador_reimann.py",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.002457|",
+              "WhenOpened": "2026-02-12T20:13:27.331Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
