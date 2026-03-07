@@ -1,6 +1,7 @@
-# CHANGELOG: Auditor韆 y Mejoras de Seguridad
+# -*- coding: utf-8 -*-
+# CHANGELOG: Auditor铆a y Mejoras de Seguridad
 
-## Versi髇 1.0 - Auditor韆 Completa
+## Versi贸n 1.0 - Auditor铆a Completa
 
 ### ?? Fecha: 2024
 ### ?? Status: COMPLETADO Y APROBADO
@@ -9,7 +10,7 @@
 
 ## ?? Cambios Realizados en `rigidez_espectral.py`
 
-### 1. IMPORTS Y CONFIGURACI覰
+### 1. IMPORTS Y CONFIGURACI脫N
 
 **ANTES**:
 ```python
@@ -21,7 +22,7 @@ from typing import Tuple, Dict, List
 import mpmath as mp
 ```
 
-**DESPU蒘**:
+**DESPU脡S**:
 ```python
 import numpy as np
 import scipy.linalg as la
@@ -45,7 +46,7 @@ warnings.filterwarnings('ignore', message='.*invalid value.*')
 
 ---
 
-### 2. FUNCI覰 `generar_uniforme()`
+### 2. FUNCI脫N `generar_uniforme()`
 
 **ANTES**:
 ```python
@@ -54,13 +55,13 @@ def generar_uniforme(N: int, soporte: Tuple[float, float] = (0, N)) -> np.ndarra
 ```
 
 **PROBLEMA**: 
-- Par醡etro default `(0, N)` es evaluado ANTES de tener N
-- Sin validaci髇 de entrada
+- Par谩metro default `(0, N)` es evaluado ANTES de tener N
+- Sin validaci贸n de entrada
 
-**DESPU蒘**:
+**DESPU脡S**:
 ```python
 def generar_uniforme(N: int, soporte: Tuple[float, float] = None) -> np.ndarray:
-    """Docstring con Par醡etros, Retorna, Raises"""
+    """Docstring con Par谩metros, Retorna, Raises"""
     if not isinstance(N, (int, np.integer)) or N < 2:
         raise ValueError(f"N debe ser entero >= 2, recibido: {N}")
     
@@ -69,20 +70,20 @@ def generar_uniforme(N: int, soporte: Tuple[float, float] = None) -> np.ndarray:
     
     a, b = soporte
     if a >= b:
-        raise ValueError(f"Soporte inv醠ido: a={a} debe ser < b={b}")
+        raise ValueError(f"Soporte inv谩lido: a={a} debe ser < b={b}")
     
     return np.linspace(a, b, N)
 ```
 
 **Beneficios**:
-- ? Validaci髇 de N
+- ? Validaci贸n de N
 - ? Soporte por defecto evaluado correctamente
-- ? Validaci髇 de rango
+- ? Validaci贸n de rango
 - ? Docstring completo con Raises
 
 ---
 
-### 3. FUNCI覰 `generar_gue_normalizado()`
+### 3. FUNCI脫N `generar_gue_normalizado()`
 
 **ANTES**:
 ```python
@@ -95,12 +96,12 @@ def generar_gue_normalizado(N: int, escala: float = 1.0) -> np.ndarray:
 ```
 
 **PROBLEMAS**:
-- Sin validaci髇 de entrada
-- Divisi髇 por `np.std(evals)` puede ser cero
+- Sin validaci贸n de entrada
+- Divisi贸n por `np.std(evals)` puede ser cero
 - Sin control de aleatoriedad
 - Sin manejo de excepciones
 
-**DESPU蒘**:
+**DESPU脡S**:
 ```python
 def generar_gue_normalizado(N: int, escala: float = 1.0, seed: Optional[int] = None) -> np.ndarray:
     """Docstring completo"""
@@ -119,8 +120,8 @@ def generar_gue_normalizado(N: int, escala: float = 1.0, seed: Optional[int] = N
         
         media = np.mean(evals)
         desv = np.std(evals)
-        if desv < 1e-10:  # ? PROTECCI覰
-            logger.warning(f"GUE (N={N}): desviaci髇 est醤dar muy peque馻 ({desv:.2e})")
+        if desv < 1e-10:  # ? PROTECCI脫N
+            logger.warning(f"GUE (N={N}): desviaci贸n est谩ndar muy peque帽a ({desv:.2e})")
             desv = 1.0
         
         evals_escalado = escala * (evals - media) / desv + N/2
@@ -132,15 +133,15 @@ def generar_gue_normalizado(N: int, escala: float = 1.0, seed: Optional[int] = N
 ```
 
 **Beneficios**:
-- ? Validaci髇 exhaustiva
-- ? Protecci髇 contra std = 0
+- ? Validaci贸n exhaustiva
+- ? Protecci贸n contra std = 0
 - ? Seed para reproducibilidad
 - ? Try-catch con logging
 - ? Docstring Numpy style
 
 ---
 
-### 4. FUNCI覰 `calcular_jacobiano_kernel()`
+### 4. FUNCI脫N `calcular_jacobiano_kernel()`
 
 **ANTES**:
 ```python
@@ -162,28 +163,28 @@ def calcular_jacobiano_kernel(gamma: np.ndarray) -> np.ndarray:
     return J
 ```
 
-**PROBLEMA**: Divisi髇 por cero si gamma[k] == gamma[l]
+**PROBLEMA**: Divisi贸n por cero si gamma[k] == gamma[l]
 
-**DESPU蒘**:
+**DESPU脡S**:
 ```python
 @jit(nopython=True, parallel=True, fastmath=True)  # ? fastmath AGREGADO
 def calcular_jacobiano_kernel(gamma: np.ndarray) -> np.ndarray:
-    """Docstring con protecci髇 num閞ica explicada"""
+    """Docstring con protecci贸n num茅rica explicada"""
     N = len(gamma)
     J = np.zeros((N, N))
-    EPSILON = 1e-10    # ? CONSTANTE DE PROTECCI覰
-    MAX_VAL = 1e10     # ? L蚆ITE SUPERIOR
+    EPSILON = 1e-10    # ? CONSTANTE DE PROTECCI脫N
+    MAX_VAL = 1e10     # ? L脥MITE SUPERIOR
     
     for k in prange(N):
         for l in range(k + 1, N):
             diff = gamma[k] - gamma[l]
             diff_abs = np.abs(diff)
             
-            if diff_abs < EPSILON:  # ? PROTECCI覰
+            if diff_abs < EPSILON:  # ? PROTECCI脫N
                 val = MAX_VAL
             else:
                 diff_sq = diff * diff
-                val = min(2.0 / diff_sq, MAX_VAL)  # ? L蚆ITE
+                val = min(2.0 / diff_sq, MAX_VAL)  # ? L脥MITE
             
             J[k, l] = val
             J[l, k] = val
@@ -202,40 +203,40 @@ def calcular_jacobiano_kernel(gamma: np.ndarray) -> np.ndarray:
 
 ---
 
-### 5. FUNCI覰 `analizar_espectro_completo()`
+### 5. FUNCI脫N `analizar_espectro_completo()`
 
 **ANTES**:
 ```python
-def analizar_espectro_completo(gamma: np.ndarray, sistema_label: str = "An髇imo") -> Dict:
+def analizar_espectro_completo(gamma: np.ndarray, sistema_label: str = "An贸nimo") -> Dict:
     N = len(gamma)
     
     gamma_u = unfolding_riemann(gamma)
     J = calcular_jacobiano_kernel(gamma_u)
     evals, evecs = la.eigh(J)  # ? SIN TRY-CATCH
     
-    # ... resto del c骴igo sin validaciones
+    # ... resto del c贸digo sin validaciones
 ```
 
 **PROBLEMAS**:
-- Sin validaci髇 de gamma
+- Sin validaci贸n de gamma
 - Sin manejo de NaN/inf
 - Sin fallback si eigh() falla
-- Sin protecci髇 contra gap = 0
+- Sin protecci贸n contra gap = 0
 - Sin advertencia de mal condicionamiento
 
-**DESPU蒘**:
+**DESPU脡S**:
 ```python
-def analizar_espectro_completo(gamma: np.ndarray, sistema_label: str = "An髇imo") -> Dict:
+def analizar_espectro_completo(gamma: np.ndarray, sistema_label: str = "An贸nimo") -> Dict:
     """Docstring extenso con Raises"""
     
-    # VALIDACI覰 DE ENTRADA
+    # VALIDACI脫N DE ENTRADA
     if gamma is None or len(gamma) < 2:
         raise ValueError(...)
     
     if not np.all(np.isfinite(gamma)):
         invalid_mask = ~np.isfinite(gamma)
         n_invalid = np.sum(invalid_mask)
-        raise ValueError(f"gamma contiene {n_invalid} valores inv醠idos...")
+        raise ValueError(f"gamma contiene {n_invalid} valores inv谩lidos...")
     
     N = len(gamma)
     
@@ -249,12 +250,12 @@ def analizar_espectro_completo(gamma: np.ndarray, sistema_label: str = "An髇imo"
         J = calcular_jacobiano_kernel(gamma_u)
         
         if not np.all(np.isfinite(J)):  # ? CHECK JACOBIANO
-            raise RuntimeError(f"Jacobiano contiene valores inv醠idos...")
+            raise RuntimeError(f"Jacobiano contiene valores inv谩lidos...")
         
         try:
             evals, evecs = la.eigh(J)  # ? TRY-CATCH
         except np.linalg.LinAlgError as e:
-            logger.error(f"{sistema_label}: fallo en diagonalizaci髇: {e}")
+            logger.error(f"{sistema_label}: fallo en diagonalizaci贸n: {e}")
             raise RuntimeError(...) from e
         
         # Ordenar y extraer autovalores
@@ -266,9 +267,9 @@ def analizar_espectro_completo(gamma: np.ndarray, sistema_label: str = "An髇imo"
         lambda_1 = float(evals_sorted[1]) if len(evals_sorted) > 1 else float(evals_sorted[0])
         gap = np.abs(lambda_1)
         
-        # PROTECCI覰 CONTRA GAP = 0
+        # PROTECCI脫N CONTRA GAP = 0
         if gap < 1e-15:
-            logger.warning(f"{sistema_label}: gap muy peque駉 ({gap:.2e}), asignando 1e-15")
+            logger.warning(f"{sistema_label}: gap muy peque帽o ({gap:.2e}), asignando 1e-15")
             gap = 1e-15
         
         v1 = evecs_reordenados[:, 1] if len(evals_sorted) > 1 else evecs_reordenados[:, 0]
@@ -296,23 +297,23 @@ def analizar_espectro_completo(gamma: np.ndarray, sistema_label: str = "An髇imo"
         }
     
     except Exception as e:
-        logger.error(f"Error cr韙ico en analizar_espectro_completo(...): {type(e).__name__}: {e}")
+        logger.error(f"Error cr铆tico en analizar_espectro_completo(...): {type(e).__name__}: {e}")
         raise
 ```
 
 **Beneficios**:
-- ? Validaci髇 de entrada exhaustiva
-- ? Detecci髇 de NaN/inf antes de operar
+- ? Validaci贸n de entrada exhaustiva
+- ? Detecci贸n de NaN/inf antes de operar
 - ? Fallback graceful si unfolding falla
 - ? Try-catch en eigh()
-- ? Protecci髇 contra gap = 0
+- ? Protecci贸n contra gap = 0
 - ? Advertencia de mal condicionamiento
-- ? Conversiones a float expl韈itas
-- ? Logging en todos los puntos de decisi髇
+- ? Conversiones a float expl铆citas
+- ? Logging en todos los puntos de decisi贸n
 
 ---
 
-### 6. FUNCI覰 `analizar_modo_blando()`
+### 6. FUNCI脫N `analizar_modo_blando()`
 
 **ANTES**:
 ```python
@@ -328,12 +329,12 @@ def analizar_modo_blando(resultado: Dict) -> Dict:
 ```
 
 **PROBLEMAS**:
-- Sin validaci髇 de v1
-- Sin protecci髇 contra v1_max = 0
+- Sin validaci贸n de v1
+- Sin protecci贸n contra v1_max = 0
 - Sin try-catch en corrcoef
-- Sin adaptaci髇 a N peque駉s
+- Sin adaptaci贸n a N peque帽os
 
-**DESPU蒘**:
+**DESPU脡S**:
 ```python
 def analizar_modo_blando(resultado: Dict) -> Dict:
     """Docstring con Raises"""
@@ -341,17 +342,17 @@ def analizar_modo_blando(resultado: Dict) -> Dict:
         v1 = resultado['v_modo_blando']
         N = len(v1)
         
-        if N < 11:  # ? VALIDACI覰
+        if N < 11:  # ? VALIDACI脫N
             raise ValueError(f"Vector demasiado corto (N={N}, necesita >10)")
         
-        # PROTECCI覰 CONTRA DIV/0
+        # PROTECCI脫N CONTRA DIV/0
         v1_max = np.max(np.abs(v1))
         if v1_max < 1e-10:
             raise ValueError("Vector propio es esencialmente nulo")
         
         v1_norm = v1 / v1_max
         
-        # Partici髇 en terciles
+        # Partici贸n en terciles
         tercio_inicio = np.mean(np.abs(v1_norm[:N//3]))
         tercio_medio = np.mean(np.abs(v1_norm[N//3:2*N//3]))
         tercio_final = np.mean(np.abs(v1_norm[2*N//3:]))
@@ -359,7 +360,7 @@ def analizar_modo_blando(resultado: Dict) -> Dict:
         denom_loc = 2 * tercio_medio + 1e-10  # ? GUARD
         localizacion = (tercio_inicio + tercio_final) / denom_loc
         
-        # Periodicidad con protecci髇
+        # Periodicidad con protecci贸n
         x = np.arange(N)
         sinusoide = np.sin(np.pi * x / N)
         
@@ -371,7 +372,7 @@ def analizar_modo_blando(resultado: Dict) -> Dict:
         except:
             correlacion_sin = 0.0  # ? FALLBACK
         
-        # Energ韆 en bordes vs centro con adaptaci髇
+        # Energ铆a en bordes vs centro con adaptaci贸n
         n_borde = min(5, N // 10)  # ? ADAPTATIVO
         energia_borde = (np.sum(v1_norm[:n_borde]**2) + np.sum(v1_norm[-n_borde:]**2))
         energia_centro = np.sum(v1_norm[n_borde:-n_borde]**2)
@@ -396,29 +397,29 @@ def analizar_modo_blando(resultado: Dict) -> Dict:
 ```
 
 **Beneficios**:
-- ? Validaci髇 de N
-- ? Protecci髇 contra v1 nulo
+- ? Validaci贸n de N
+- ? Protecci贸n contra v1 nulo
 - ? Guards denominadores con +1e-10
 - ? Try-catch en corrcoef
-- ? Adaptaci髇 a N peque駉s
+- ? Adaptaci贸n a N peque帽os
 - ? Retorna defaults si falla (no crash)
 - ? Logging de errores
 
 ---
 
-### 7. FUNCI覰 `ejecutar_protocolo_escalamiento()`
+### 7. FUNCI脫N `ejecutar_protocolo_escalamiento()`
 
 **ANTES**:
 ```python
 def ejecutar_protocolo_escalamiento(N_values: List[int], cache_obtener=None, num_realizaciones_gue: int = 5):
     for N in N_values:
-        # ... c骴igo sin try-catch
+        # ... c贸digo sin try-catch
         gamma_riemann = cache_obtener(N)
         resultado_r = analizar_espectro_completo(gamma_riemann, "Riemann")
         # ... sin manejo de fallos
 ```
 
-**DESPU蒘**:
+**DESPU脡S**:
 ```python
 def ejecutar_protocolo_escalamiento(
     N_values: List[int],
@@ -428,12 +429,12 @@ def ejecutar_protocolo_escalamiento(
 ):
     """Docstring extenso"""
     
-    # VALIDACI覰
+    # VALIDACI脫N
     if not N_values or len(N_values) < 2:
         raise ValueError("N_values debe contener al menos 2 elementos")
     
     if any(N < 10 for N in N_values):
-        logger.warning("Algunos valores de N < 10: an醠isis puede fallar")
+        logger.warning("Algunos valores de N < 10: an谩lisis puede fallar")
     
     if verbose:
         print("=" * 80)
@@ -464,17 +465,17 @@ def ejecutar_protocolo_escalamiento(
                 if verbose:
                     print(f"  Riemann: ERROR - {e}")
         
-        # === UNIFORME, GUE, POISSON (an醠ogo con try-catch) ===
+        # === UNIFORME, GUE, POISSON (an谩logo con try-catch) ===
         # ... similar
     
     return {...}
 ```
 
 **Beneficios**:
-- ? Validaci髇 de N_values
+- ? Validaci贸n de N_values
 - ? Advertencia si N < 10
 - ? Try-catch para cada subsistema
-- ? Contin鷄 si un sistema falla
+- ? Contin煤a si un sistema falla
 - ? Logging de errores
 - ? Control verbose
 
@@ -482,14 +483,14 @@ def ejecutar_protocolo_escalamiento(
 
 ## ?? Resumen de Cambios
 
-| 羠ea | Cambios | Beneficio |
+| 脕rea | Cambios | Beneficio |
 |------|---------|-----------|
 | **Imports** | +logging, +warnings, +Optional | Trazabilidad + control |
-| **Validaci髇** | Agregada en todos los puntos de entrada | Rechazo de datos inv醠idos |
-| **Protecci髇 Num閞ica** | EPSILON=1e-10, MAX_VAL=1e10, guards denominador | Evita inf, NaN, div/0 |
-| **Excepciones** | Try-catch con logging en puntos cr韙icos | Recuperaci髇 sin crash |
-| **Docstrings** | Formato Numpy completo | Documentaci髇 est醤dar |
-| **Logging** | error(), warning(), info() en puntos clave | Debugging + auditor韆 |
+| **Validaci贸n** | Agregada en todos los puntos de entrada | Rechazo de datos inv谩lidos |
+| **Protecci贸n Num茅rica** | EPSILON=1e-10, MAX_VAL=1e10, guards denominador | Evita inf, NaN, div/0 |
+| **Excepciones** | Try-catch con logging en puntos cr铆ticos | Recuperaci贸n sin crash |
+| **Docstrings** | Formato Numpy completo | Documentaci贸n est谩ndar |
+| **Logging** | error(), warning(), info() en puntos clave | Debugging + auditor铆a |
 | **Reproducibilidad** | Seed en GUE y Poisson | Resultados reproducibles |
 | **Type Hints** | PEP 484 en todas las firmas | Type safety |
 | **Performance** | fastmath=True en JIT | +10-20% velocidad |
@@ -500,14 +501,14 @@ def ejecutar_protocolo_escalamiento(
 
 **Status**: ? **COMPLETADO**
 
-- ? 100% de validaci髇 de entrada
-- ? 100% de protecci髇 num閞ica
+- ? 100% de validaci贸n de entrada
+- ? 100% de protecci贸n num茅rica
 - ? 100% de manejo de excepciones
 - ? 100% de logging
 - ? 100% de type hints
 - ? 100% de docstrings
 
-**C骴igoready for production use** (experimental).
+**C贸digoready for production use** (experimental).
 
 ---
 

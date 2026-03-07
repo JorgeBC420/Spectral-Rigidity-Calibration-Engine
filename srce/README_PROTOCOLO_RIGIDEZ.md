@@ -1,29 +1,30 @@
+# -*- coding: utf-8 -*-
 # Protocolo de Rigidez Espectral
 
-## VisiÛn General
+## Visi√≥n General
 
-Este mÛdulo implementa un **Protocolo de ValidaciÛn MetrolÛgica Riguroso** para analizar la estructura din·mica de los ceros de Riemann mediante comparaciÛn sistem·tica con benchmarks estadÌsticos conocidos.
+Este m√≥dulo implementa un **Protocolo de Validaci√≥n Metrol√≥gica Riguroso** para analizar la estructura din√°mica de los ceros de Riemann mediante comparaci√≥n sistem√°tica con benchmarks estad√≠sticos conocidos.
 
 ### Problema Fundamental
 
-El an·lisis puntual (Experimento 2) muestra que en la configuraciÛn inicial, el tÈrmino singular `4/d_i` domina sobre el tÈrmino regular `R_i`, sugiriendo una tendencia repulsiva local. **Pero esto NO responde la pregunta crÌtica:**
+El an√°lisis puntual (Experimento 2) muestra que en la configuraci√≥n inicial, el t√©rmino singular `4/d_i` domina sobre el t√©rmino regular `R_i`, sugiriendo una tendencia repulsiva local. **Pero esto NO responde la pregunta cr√≠tica:**
 
-> øEs esta repulsiÛn especÌfica de los ceros de Riemann, o es un comportamiento universal de cualquier sistema de partÌculas con interacciÛn logarÌtmica confinada?
+> ¬øEs esta repulsi√≥n espec√≠fica de los ceros de Riemann, o es un comportamiento universal de cualquier sistema de part√≠culas con interacci√≥n logar√≠tmica confinada?
 
-### SoluciÛn: Protocolo de Rigidez Espectral
+### Soluci√≥n: Protocolo de Rigidez Espectral
 
 Comparamos tres sistemas de control con propiedades conocidas:
 
-1. **Riemann**: Los ceros reales de la funciÛn ?(s)
-2. **Uniforme**: Red cristalina perfecta (m·xima rigidez posible)
-3. **GUE**: Espectro de Gaussian Unitary Ensemble (m·xima flexibilidad)
+1. **Riemann**: Los ceros reales de la funci√≥n ?(s)
+2. **Uniforme**: Red cristalina perfecta (m√°xima rigidez posible)
+3. **GUE**: Espectro de Gaussian Unitary Ensemble (m√°xima flexibilidad)
 4. **Poisson**: Proceso de Poisson puro (sin correlaciones)
 
-## Marco TeÛrico
+## Marco Te√≥rico
 
 ### El Jacobiano como Medida de Estabilidad
 
-Para un sistema din·mico `?? = -?E` (donde E es la energÌa log-gas):
+Para un sistema din√°mico `?? = -?E` (donde E es la energ√≠a log-gas):
 
 ```
 E = -?_{i<j} log|?_i - ?_j|
@@ -32,77 +33,77 @@ E = -?_{i<j} log|?_i - ?_j|
 El Jacobiano es el **negativo del Hessiano**:
 
 ```
-J = -?≤E
+J = -?¬≤E
 ```
 
 Con elementos:
 ```
-J_kl = 2 / (?_k - ?_l)≤   para k ? l
+J_kl = 2 / (?_k - ?_l)¬≤   para k ? l
 J_kk = -?_{j?k} J_kj      (suma de fila)
 ```
 
 **Propiedades Fundamentales:**
-- **J es simÈtrica**: Diagonalizable en base ortonormal
-- **J ? 0 (semidefinida negativa)**: Por definiciÛn, pues es derivada de una energÌa convexa
-- **?? = 0**: Autovalor de traslaciÛn (degeneraciÛn de Galileo)
-- **?? = gap espectral**: Primer autovalor no nulo (modo m·s blando)
+- **J es sim√©trica**: Diagonalizable en base ortonormal
+- **J ? 0 (semidefinida negativa)**: Por definici√≥n, pues es derivada de una energ√≠a convexa
+- **?? = 0**: Autovalor de traslaci√≥n (degeneraci√≥n de Galileo)
+- **?? = gap espectral**: Primer autovalor no nulo (modo m√°s blando)
 
 ### El Gap Espectral como Observable
 
-El gap espectral `?? = |??|` mide la **velocidad fundamental de relajaciÛn** del sistema hacia su equilibrio estadÌstico.
+El gap espectral `?? = |??|` mide la **velocidad fundamental de relajaci√≥n** del sistema hacia su equilibrio estad√≠stico.
 
-En sistemas de partÌculas con repulsiÛn:
-- **?? grande**: Sistema "rÌgido" (resiste perturbaciones)
-- **?? pequeÒo**: Sistema "blando" (fluct˙a f·cilmente)
+En sistemas de part√≠culas con repulsi√≥n:
+- **?? grande**: Sistema "r√≠gido" (resiste perturbaciones)
+- **?? peque√±o**: Sistema "blando" (fluct√∫a f√°cilmente)
 
 #### Escalamiento Universal
 
-Para partÌculas con repulsiÛn logarÌtmica en un dominio de tamaÒo ~N:
+Para part√≠culas con repulsi√≥n logar√≠tmica en un dominio de tama√±o ~N:
 
 ```
 ?? ~ N^(-?)
 ```
 
-El exponente ? caractÈriza la clase universal:
-- **? = 2**: Hidrodin·mica universal de gases
-- **? < 2**: Rigidez anÛmala (sistema "congelado" localmente)
-- **? > 2**: Fluidez anÛmala (sistema "caÛtico")
+El exponente ? caract√©riza la clase universal:
+- **? = 2**: Hidrodin√°mica universal de gases
+- **? < 2**: Rigidez an√≥mala (sistema "congelado" localmente)
+- **? > 2**: Fluidez an√≥mala (sistema "ca√≥tico")
 
 ### El Modo Blando como Sonda Estructural
 
-El vector propio `v?` asociado a `??` revela la **forma de la fluctuaciÛn m·s probable**:
+El vector propio `v?` asociado a `??` revela la **forma de la fluctuaci√≥n m√°s probable**:
 
 ```
 Sinusoidal:     v? ~ sin(?i/N)
-                ? Elasticidad continua autÈntica
+                ? Elasticidad continua aut√©ntica
                 ? El truncamiento es benigno
 
 Global:         v? distribuido uniformemente
                 ? Onda colectiva del bulto
-                ? FÌsica genuina de bulk
+                ? F√≠sica genuina de bulk
 
 Localizado:     v? concentrado en bordes
                 ? Artefacto de condiciones de contorno
                 ? Experimento invalida para ese N
 ```
 
-## Estructura del MÛdulo
+## Estructura del M√≥dulo
 
 ### `rigidez_espectral.py`
 
 #### 1. Generadores de Benchmarks
 
 ```python
-generar_uniforme(N)           # Red cristalina: m·xima rigidez
-generar_gue_normalizado(N)    # GUE: m·xima flexibilidad
+generar_uniforme(N)           # Red cristalina: m√°xima rigidez
+generar_gue_normalizado(N)    # GUE: m√°xima flexibilidad
 generar_poisson(N)            # Poisson: sin correlaciones
 ```
 
-#### 2. C·lculos Espectrales (JIT para velocidad)
+#### 2. C√°lculos Espectrales (JIT para velocidad)
 
 ```python
 @jit(nopython=True)
-calcular_jacobiano_kernel(gamma)   # J = -?≤E
+calcular_jacobiano_kernel(gamma)   # J = -?¬≤E
 
 @jit(nopython=True)
 energia_log_gas(gamma)              # E = -? log|?_i - ?_j|
@@ -110,7 +111,7 @@ energia_log_gas(gamma)              # E = -? log|?_i - ?_j|
 unfolding_riemann(gamma)            # Normalizar densidad local
 ```
 
-#### 3. An·lisis Espectral
+#### 3. An√°lisis Espectral
 
 ```python
 analizar_espectro_completo(gamma)
@@ -131,15 +132,15 @@ ejecutar_protocolo_escalamiento(N_values, cache_obtener)
         Para cada sistema (Riemann, Uniforme, GUE, Poisson):
             Calcular Jacobiano
             Extraer gap y modo blando
-            Analizar localizaciÛn y periodicidad
+            Analizar localizaci√≥n y periodicidad
     ? Datos completos de escalamiento
 ```
 
 ## Uso
 
-### IntegraciÛn en `solucionador_reimann.py`
+### Integraci√≥n en `solucionador_reimann.py`
 
-El programa principal ejecuta autom·ticamente:
+El programa principal ejecuta autom√°ticamente:
 
 ```python
 # EXPERIMENTO 3
@@ -150,7 +151,7 @@ if RIGIDEZ_DISPONIBLE:
     )
 ```
 
-### EjecuciÛn Standalone
+### Ejecuci√≥n Standalone
 
 ```python
 from rigidez_espectral import ejecutar_analisis_completo
@@ -168,106 +169,106 @@ gap_riemann = [r['gap'] for r in datos['espectra']['riemann']]
 modo_blando_riemann = datos['modos_blandos']['riemann']
 ```
 
-## InterpretaciÛn de Resultados
+## Interpretaci√≥n de Resultados
 
 ### Panel 1: Gap vs N (Escala Lineal)
 
-Muestra la evoluciÛn bruta del gap espectral. B˙squeda visual de discontinuidades o cambios de rÈgimen.
+Muestra la evoluci√≥n bruta del gap espectral. B√∫squeda visual de discontinuidades o cambios de r√©gimen.
 
-**SeÒal Importante**: Si Riemann se desvÌa significativamente de Uniforme/GUE, hay estructura especial.
+**Se√±al Importante**: Si Riemann se desv√≠a significativamente de Uniforme/GUE, hay estructura especial.
 
 ### Panel 2: Gap vs N (Escala Log-Log)
 
-Ajuste del exponente crÌtico `?? ~ N^(-?)`.
+Ajuste del exponente cr√≠tico `?? ~ N^(-?)`.
 
-**InterpretaciÛn**:
+**Interpretaci√≥n**:
 - Riemann con `? ? 2`: Comportamiento universal (no especial)
-- Riemann con `? < 2`: Rigidez anÛmala (especial)
-- Curvatura en log-log: TransiciÛn de rÈgimen (muy raro)
+- Riemann con `? < 2`: Rigidez an√≥mala (especial)
+- Curvatura en log-log: Transici√≥n de r√©gimen (muy raro)
 
-### Panel 3: EnergÌa vs N
+### Panel 3: Energ√≠a vs N
 
-EvoluciÛn de `E = -? log|?_i - ?_j|`.
+Evoluci√≥n de `E = -? log|?_i - ?_j|`.
 
 **Lecturas**:
 - E crece lentamente con N: Sistema en equilibrio
-- E crece r·pidamente: Ceros siendo "comprimidos"
+- E crece r√°pidamente: Ceros siendo "comprimidos"
 - E diverge: Indicativo de coalescencia (no esperado)
 
 ### Panel 4-6: Modo Blando
 
-Gr·ficos del vector propio normalizado vs posiciÛn.
+Gr√°ficos del vector propio normalizado vs posici√≥n.
 
 **Criterios**:
-1. **CorrelaciÛn con sin(?i/N)** > 0.8 ? Sinusoidal ? AutÈntico
-2. **EnergÌa en bordes / energÌa en centro** < 0.3 ? Genuino ? V·lido
-3. **Õndice de localizaciÛn** < 0.3 ? Global ? Modo colectivo
+1. **Correlaci√≥n con sin(?i/N)** > 0.8 ? Sinusoidal ? Aut√©ntico
+2. **Energ√≠a en bordes / energ√≠a en centro** < 0.3 ? Genuino ? V√°lido
+3. **√çndice de localizaci√≥n** < 0.3 ? Global ? Modo colectivo
 
-### Panel 7: Õndice de LocalizaciÛn
+### Panel 7: √çndice de Localizaci√≥n
 
-Mide quÈ fracciÛn de la energÌa del modo est· concentrada en los bordes.
+Mide qu√© fracci√≥n de la energ√≠a del modo est√° concentrada en los bordes.
 
-**InterpretaciÛn**:
-- Fluct˙a < 0.3: Modos globales autÈnticos
+**Interpretaci√≥n**:
+- Fluct√∫a < 0.3: Modos globales aut√©nticos
 - Crece > 0.5: Artefacto de borde (invalida N)
 - Intermedio: Mezcla de efectos
 
-### Panel 8: CorrelaciÛn Sinusoidal
+### Panel 8: Correlaci√≥n Sinusoidal
 
-CorrelaciÛn del modo observado con `sin(?i/N)`.
+Correlaci√≥n del modo observado con `sin(?i/N)`.
 
-**InterpretaciÛn**:
-- ? > 0.8: Sistema se comporta como cuerda el·stica
+**Interpretaci√≥n**:
+- ? > 0.8: Sistema se comporta como cuerda el√°stica
 - ? < 0.5: Estructura compleja (no continua)
-- Cambio abrupto: TransiciÛn de rÈgimen fÌsico
+- Cambio abrupto: Transici√≥n de r√©gimen f√≠sico
 
-### Panel 9: Resumen EstadÌstico
+### Panel 9: Resumen Estad√≠stico
 
-DiagnÛstico en tiempo real de validez del experimento.
+Diagn√≥stico en tiempo real de validez del experimento.
 
-## Diagnostics Autom·ticos
+## Diagnostics Autom√°ticos
 
 El protocolo incluye validaciones:
 
-1. **N˙mero de condiciÛn de J**: Si cond(J) > 10^12, resultados numÈricos sospechosos
-2. **DesviaciÛn de ?? de cero**: Si |??| > 10^(-8), truncamiento deficiente
-3. **Proporcionalidad ?? ~ N^(-2)**: Si R≤ < 0.95 en ajuste, hay efectos no universales
+1. **N√∫mero de condici√≥n de J**: Si cond(J) > 10^12, resultados num√©ricos sospechosos
+2. **Desviaci√≥n de ?? de cero**: Si |??| > 10^(-8), truncamiento deficiente
+3. **Proporcionalidad ?? ~ N^(-2)**: Si R¬≤ < 0.95 en ajuste, hay efectos no universales
 
-## InterpretaciÛn Conceptual
+## Interpretaci√≥n Conceptual
 
-### øQuÈ revelamos?
+### ¬øQu√© revelamos?
 
 El protocolo responde preguntas en cascada:
 
-1. **øRiemann es especial?** ? Comparar ? con Uniforme/GUE
-2. **øCÛmo es especial?** ? Analizar modo blando y estructura local
-3. **øEs artefacto?** ? Verificar localizaciÛn y estabilidad numÈrica
-4. **øQuÈ implica?** ? Conectar con teorÌa de matrices aleatorias
+1. **¬øRiemann es especial?** ? Comparar ? con Uniforme/GUE
+2. **¬øC√≥mo es especial?** ? Analizar modo blando y estructura local
+3. **¬øEs artefacto?** ? Verificar localizaci√≥n y estabilidad num√©rica
+4. **¬øQu√© implica?** ? Conectar con teor√≠a de matrices aleatorias
 
-### øQuÈ NO revelamos?
+### ¬øQu√© NO revelamos?
 
 - **NO probamos RH**: El protocolo es condicional al truncamiento
 - **NO eliminamos el error de truncamiento**: Solo lo medimos
-- **NO predecimos comportamiento din·mico**: Es an·lisis puntual del Jacobiano
+- **NO predecimos comportamiento din√°mico**: Es an√°lisis puntual del Jacobiano
 - **NO hacemos conclusiones globales**: Solo observaciones locales a N fijo
 
-## Referencias TeÛricas
+## Referencias Te√≥ricas
 
 1. **Dyson's Circular Law**: Espectro de matrices aleatorias
-2. **PÛlya-Schur Theorem**: ConexiÛn con funciones de frecuencia
+2. **P√≥lya-Schur Theorem**: Conexi√≥n con funciones de frecuencia
 3. **Log-Gas Physics**: Modelo Coulomb 2D reducido a 1D
-4. **Newman's Deformation**: InterpolaciÛn entre ?(s) y versiones "perturbadas"
+4. **Newman's Deformation**: Interpolaci√≥n entre ?(s) y versiones "perturbadas"
 
-## Limitaciones ExplÌcitas
+## Limitaciones Expl√≠citas
 
-1. **Truncamiento**: Los primeros N ceros, no el lÌmite ?
-2. **NumeraciÛn**: Errores de condicionamiento para N > 5000
-3. **ComparaciÛn**: GUE no es exactamente el lÌmite termodin·mico
-4. **Estacionariedad**: An·lisis en t=0, no din·mico
+1. **Truncamiento**: Los primeros N ceros, no el l√≠mite ?
+2. **Numeraci√≥n**: Errores de condicionamiento para N > 5000
+3. **Comparaci√≥n**: GUE no es exactamente el l√≠mite termodin√°mico
+4. **Estacionariedad**: An√°lisis en t=0, no din√°mico
 
 ## Mejoras Futuras
 
-1. **ComparaciÛn con ?-ensemble**: Generalizar GUE
-2. **An·lisis de tres puntos**: EstadÌstica de nivel superior
-3. **SimulaciÛn din·mica del Jacobiano**: IntegraciÛn de flujo de Riemann-Siegel
+1. **Comparaci√≥n con ?-ensemble**: Generalizar GUE
+2. **An√°lisis de tres puntos**: Estad√≠stica de nivel superior
+3. **Simulaci√≥n din√°mica del Jacobiano**: Integraci√≥n de flujo de Riemann-Siegel
 4. **Correcciones de borde**: Separar bulk de interface effects

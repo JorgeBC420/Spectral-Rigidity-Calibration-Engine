@@ -1,4 +1,5 @@
-# ÕNDICE COMPLETO DEL PROYECTO
+# -*- coding: utf-8 -*-
+# √çNDICE COMPLETO DEL PROYECTO
 
 ## ?? Estructura del Workspace
 
@@ -9,38 +10,38 @@ solucionador reimann/
 ?   ??? solucionador_reimann.py          [MAIN] Programa principal ejecutable
 ?   ??? rigidez_espectral.py             [MODULE] Protocolo de rigidez espectral
 ?
-??? ?? DOCUMENTACI”N T…CNICA
-?   ??? README_PROTOCOLO_RIGIDEZ.md      [GUÕA] Manual tÈcnico del protocolo
-?   ??? AUDITORIA_SEGURIDAD.md           [AUDIT] AuditorÌa de cÛdigo
+??? ?? DOCUMENTACI√ìN T√âCNICA
+?   ??? README_PROTOCOLO_RIGIDEZ.md      [GU√çA] Manual t√©cnico del protocolo
+?   ??? AUDITORIA_SEGURIDAD.md           [AUDIT] Auditor√≠a de c√≥digo
 ?   ??? RESUMEN_IMPLEMENTACION.md        [OVERVIEW] Resumen de features
 ?   ??? CHANGELOG.md                     [HISTORY] Cambios realizados
 ?   ??? INDICE_COMPLETO.md               [THIS] Este archivo
 ?
-??? ?? TESTING Y VALIDACI”N
-?   ??? TEST_SUITE.py                    [TEST] Suite de pruebas r·pida
+??? ?? TESTING Y VALIDACI√ìN
+?   ??? TEST_SUITE.py                    [TEST] Suite de pruebas r√°pida
 ?
 ??? ?? DATA (creado en runtime)
 ?   ??? cache_ceros_riemann.pkl          [CACHE] Persistencia de ceros
 ?
-??? ?? OUTPUT (generado por ejecuciÛn)
+??? ?? OUTPUT (generado por ejecuci√≥n)
     ??? analisis_espaciado_vs_N.png      [PLOT] 6 paneles de espaciado
-    ??? evolucion_dmin.png               [PLOT] EvoluciÛn temporal
-    ??? rigidez_espectral_protocolo.png  [PLOT] 9 paneles diagnÛstico
+    ??? evolucion_dmin.png               [PLOT] Evoluci√≥n temporal
+    ??? rigidez_espectral_protocolo.png  [PLOT] 9 paneles diagn√≥stico
 ```
 
 ---
 
-## ??? GuÌa de Archivos
+## ??? Gu√≠a de Archivos
 
 ### 1?? `solucionador_reimann.py` [MAIN]
 
-**PropÛsito**: Programa principal que ejecuta 3 experimentos
+**Prop√≥sito**: Programa principal que ejecuta 3 experimentos
 
 **Contiene**:
-- ? CachÈ persistente de ceros (CacheZeros)
+- ? Cach√© persistente de ceros (CacheZeros)
 - ? Funciones de velocidad y espaciado (JIT optimizado)
-- ? An·lisis puntual del espaciado (Experimento A)
-- ? IntegraciÛn din·mica (Experimento B)
+- ? An√°lisis puntual del espaciado (Experimento A)
+- ? Integraci√≥n din√°mica (Experimento B)
 - ? Estudio vs N (Experimento 2)
 - ? Protocolo de rigidez (Experimento 3)
 
@@ -61,30 +62,30 @@ python solucionador_reimann.py
 
 ### 2?? `rigidez_espectral.py` [MODULE]
 
-**PropÛsito**: MÛdulo de an·lisis metrolÛgico independiente
+**Prop√≥sito**: M√≥dulo de an√°lisis metrol√≥gico independiente
 
 **Contiene**:
 - ? Generadores de benchmarks (Uniforme, GUE, Poisson)
 - ? Jacobiano kernel optimizado (Numba JIT)
-- ? An·lisis espectral robusto
-- ? CaracterizaciÛn de modos blandos
+- ? An√°lisis espectral robusto
+- ? Caracterizaci√≥n de modos blandos
 - ? Protocolo de escalamiento
-- ? VisualizaciÛn comparativa
+- ? Visualizaci√≥n comparativa
 
-**CaracterÌsticas**:
+**Caracter√≠sticas**:
 - 100% type hints (PEP 484)
 - Logging completamente funcional
 - Manejo robusto de errores
 - Reproducibilidad con seeds
 
-**Funciones p˙blicas**:
+**Funciones p√∫blicas**:
 ```python
 # Benchmarks
 generar_uniforme(N, soporte)
 generar_gue_normalizado(N, escala, seed)
 generar_poisson(N, soporte, seed)
 
-# An·lisis
+# An√°lisis
 analizar_espectro_completo(gamma, label)
 analizar_modo_blando(resultado)
 ajustar_exponente_critico(N_values, gaps)
@@ -93,99 +94,99 @@ ajustar_exponente_critico(N_values, gaps)
 ejecutar_protocolo_escalamiento(N_values, cache_obtener, ...)
 ejecutar_analisis_completo(cache_obtener, N_values, verbose)
 
-# VisualizaciÛn
+# Visualizaci√≥n
 visualizar_protocolo_completo(datos)
 ```
 
-**Puede usarse**: En otros scripts, como mÛdulo importable
+**Puede usarse**: En otros scripts, como m√≥dulo importable
 
 ---
 
-### 3?? `README_PROTOCOLO_RIGIDEZ.md` [GUÕA]
+### 3?? `README_PROTOCOLO_RIGIDEZ.md` [GU√çA]
 
-**PropÛsito**: Manual tÈcnico exhaustivo
+**Prop√≥sito**: Manual t√©cnico exhaustivo
 
 **Contiene**:
-- Marco teÛrico del Jacobiano y gap espectral
+- Marco te√≥rico del Jacobiano y gap espectral
 - Descripciones de benchmarks (Uniforme, GUE, Poisson)
-- ExplicaciÛn del protocolo de escalamiento
-- InterpretaciÛn de resultados
-- Diagrama de paneles de visualizaciÛn
-- Referencias teÛricas
+- Explicaci√≥n del protocolo de escalamiento
+- Interpretaci√≥n de resultados
+- Diagrama de paneles de visualizaci√≥n
+- Referencias te√≥ricas
 
-**Leer si**: Necesitas entender la teorÌa detr·s del an·lisis
+**Leer si**: Necesitas entender la teor√≠a detr√°s del an√°lisis
 
 ---
 
 ### 4?? `AUDITORIA_SEGURIDAD.md` [AUDIT]
 
-**PropÛsito**: AuditorÌa exhaustiva de cÛdigo
+**Prop√≥sito**: Auditor√≠a exhaustiva de c√≥digo
 
 **Contiene**:
-- ? ValidaciÛn de entrada (secciÛn 1)
-- ? ProtecciÛn contra errores numÈricos (secciÛn 2)
-- ? Manejo de excepciones (secciÛn 3)
-- ? Sistema de logging (secciÛn 4)
-- ? SupresiÛn de warnings (secciÛn 5)
-- ? Type hints y documentaciÛn (secciÛn 6)
-- ? Optimizaciones de performance (secciÛn 7)
-- ? Reproducibilidad (secciÛn 8)
-- ? LÌmites de precisiÛn (secciÛn 9)
-- ? Testing recomendado (secciÛn 10)
-- ? Compatibilidad (secciÛn 11)
-- ? Seguridad de memoria (secciÛn 12)
+- ? Validaci√≥n de entrada (secci√≥n 1)
+- ? Protecci√≥n contra errores num√©ricos (secci√≥n 2)
+- ? Manejo de excepciones (secci√≥n 3)
+- ? Sistema de logging (secci√≥n 4)
+- ? Supresi√≥n de warnings (secci√≥n 5)
+- ? Type hints y documentaci√≥n (secci√≥n 6)
+- ? Optimizaciones de performance (secci√≥n 7)
+- ? Reproducibilidad (secci√≥n 8)
+- ? L√≠mites de precisi√≥n (secci√≥n 9)
+- ? Testing recomendado (secci√≥n 10)
+- ? Compatibilidad (secci√≥n 11)
+- ? Seguridad de memoria (secci√≥n 12)
 
-**Leer si**: Necesitas garantÌas de robustez y seguridad
+**Leer si**: Necesitas garant√≠as de robustez y seguridad
 
 ---
 
 ### 5?? `RESUMEN_IMPLEMENTACION.md` [OVERVIEW]
 
-**PropÛsito**: Resumen ejecutivo
+**Prop√≥sito**: Resumen ejecutivo
 
 **Contiene**:
 - ?? Status del proyecto
-- ?? QuÈ se implementÛ
+- ?? Qu√© se implement√≥
 - ?? Observables principales
-- ??? GarantÌas de seguridad
-- ?? LÌmites conocidos
-- ?? CÛmo ejecutar
-- ?? DocumentaciÛn Ìndice
+- ??? Garant√≠as de seguridad
+- ?? L√≠mites conocidos
+- ?? C√≥mo ejecutar
+- ?? Documentaci√≥n √≠ndice
 - ?? Advertencias importantes
 - ? Checklist pre-uso
 
-**Leer si**: Necesitas overview r·pido
+**Leer si**: Necesitas overview r√°pido
 
 ---
 
 ### 6?? `CHANGELOG.md` [HISTORY]
 
-**PropÛsito**: Registro detallado de cambios
+**Prop√≥sito**: Registro detallado de cambios
 
 **Contiene**:
-- VersiÛn 1.0 - AuditorÌa Completa
-- Cambios en cada funciÛn
-- ComparaciÛn ANTES/DESPU…S
+- Versi√≥n 1.0 - Auditor√≠a Completa
+- Cambios en cada funci√≥n
+- Comparaci√≥n ANTES/DESPU√âS
 - Problemas identificados
 - Soluciones implementadas
 - Beneficios de cada mejora
 
-**Leer si**: Necesitas entender quÈ fue cambiado y por quÈ
+**Leer si**: Necesitas entender qu√© fue cambiado y por qu√©
 
 ---
 
 ### 7?? `TEST_SUITE.py` [TEST]
 
-**PropÛsito**: Suite de pruebas r·pida (sin ejecuciÛn pesada)
+**Prop√≥sito**: Suite de pruebas r√°pida (sin ejecuci√≥n pesada)
 
 **Contiene**:
-- [TEST 1] ValidaciÛn de entrada
-- [TEST 2] ProtecciÛn numÈrica
+- [TEST 1] Validaci√≥n de entrada
+- [TEST 2] Protecci√≥n num√©rica
 - [TEST 3] Manejo de excepciones
 - [TEST 4] Logging
 - [TEST 5] Reproducibilidad
-- [TEST 6] Est·ndares de cÛdigo
-- [TEST 7] LÌmites de precisiÛn
+- [TEST 6] Est√°ndares de c√≥digo
+- [TEST 7] L√≠mites de precisi√≥n
 - [TEST 8] Compatibilidad de versiones
 - [TEST 9] Cobertura de funciones
 
@@ -196,13 +197,13 @@ python TEST_SUITE.py
 
 **Tiempo aprox**: < 5 segundos
 
-**Output**: Checklist de validaciÛn en consola
+**Output**: Checklist de validaci√≥n en consola
 
 ---
 
-## ?? CÛmo Comenzar
+## ?? C√≥mo Comenzar
 
-### Paso 1: Verificar InstalaciÛn
+### Paso 1: Verificar Instalaci√≥n
 
 ```bash
 python TEST_SUITE.py
@@ -210,13 +211,13 @@ python TEST_SUITE.py
 
 Debe mostrar: ? LISTO PARA USAR
 
-### Paso 2: Entender la TeorÌa
+### Paso 2: Entender la Teor√≠a
 
 Leer en orden:
-1. `README_PROTOCOLO_RIGIDEZ.md` (teorÌa)
+1. `README_PROTOCOLO_RIGIDEZ.md` (teor√≠a)
 2. `RESUMEN_IMPLEMENTACION.md` (overview)
 
-### Paso 3: Ejecutar An·lisis
+### Paso 3: Ejecutar An√°lisis
 
 ```bash
 python solucionador_reimann.py
@@ -228,36 +229,36 @@ Genera 3 PNG en la carpeta.
 
 Abrir:
 - `analisis_espaciado_vs_N.png` ? Comportamiento puntual
-- `rigidez_espectral_protocolo.png` ? ComparaciÛn benchmarks
-- `evolucion_dmin.png` ? EvoluciÛn temporal
+- `rigidez_espectral_protocolo.png` ? Comparaci√≥n benchmarks
+- `evolucion_dmin.png` ? Evoluci√≥n temporal
 
 ### Paso 5: Entender Seguridad
 
-Leer `AUDITORIA_SEGURIDAD.md` si necesitas garantÌas tÈcnicas.
+Leer `AUDITORIA_SEGURIDAD.md` si necesitas garant√≠as t√©cnicas.
 
 ---
 
-## ?? Matriz de DecisiÛn: QuÈ Archivo Leer
+## ?? Matriz de Decisi√≥n: Qu√© Archivo Leer
 
 ```
-øNecesito entender la teorÌa?
-  ?? SÕ ? README_PROTOCOLO_RIGIDEZ.md
+¬øNecesito entender la teor√≠a?
+  ?? S√ç ? README_PROTOCOLO_RIGIDEZ.md
   ?? NO ? Paso siguiente
 
-øNecesito un overview r·pido?
-  ?? SÕ ? RESUMEN_IMPLEMENTACION.md
+¬øNecesito un overview r√°pido?
+  ?? S√ç ? RESUMEN_IMPLEMENTACION.md
   ?? NO ? Paso siguiente
 
-øNecesito garantÌas de robustez?
-  ?? SÕ ? AUDITORIA_SEGURIDAD.md
+¬øNecesito garant√≠as de robustez?
+  ?? S√ç ? AUDITORIA_SEGURIDAD.md
   ?? NO ? Paso siguiente
 
-øNecesito saber quÈ cambiÛ?
-  ?? SÕ ? CHANGELOG.md
+¬øNecesito saber qu√© cambi√≥?
+  ?? S√ç ? CHANGELOG.md
   ?? NO ? Paso siguiente
 
-øNecesito verificar que funciona?
-  ?? SÕ ? Ejecutar TEST_SUITE.py
+¬øNecesito verificar que funciona?
+  ?? S√ç ? Ejecutar TEST_SUITE.py
   ?? NO ? Listo para usar
 ```
 
@@ -291,7 +292,7 @@ TEST_SUITE.py
 - [ ] Verificar NumPy, SciPy, Numba, Matplotlib instalados
 - [ ] Revisar `README_PROTOCOLO_RIGIDEZ.md` (opcional pero recomendado)
 - [ ] Ejecutar `python solucionador_reimann.py`
-- [ ] Revisar gr·ficos generados
+- [ ] Revisar gr√°ficos generados
 - [ ] Leer logs en consola
 - [ ] Si hay problemas, revisar `AUDITORIA_SEGURIDAD.md`
 
@@ -300,41 +301,41 @@ TEST_SUITE.py
 ## ?? Niveles de Lectura
 
 ### Nivel 1: Usuario Final (5 min)
-- [ ] `RESUMEN_IMPLEMENTACION.md` (secciones "CÛmo Ejecutar" y "CÛmo Comenzar")
+- [ ] `RESUMEN_IMPLEMENTACION.md` (secciones "C√≥mo Ejecutar" y "C√≥mo Comenzar")
 - [ ] Ejecutar programa
-- [ ] Ver gr·ficos
+- [ ] Ver gr√°ficos
 
 ### Nivel 2: Analista (30 min)
 - [ ] Todo lo del Nivel 1
-- [ ] `README_PROTOCOLO_RIGIDEZ.md` (teorÌa del protocolo)
-- [ ] Interpretar resultados en gr·ficos
+- [ ] `README_PROTOCOLO_RIGIDEZ.md` (teor√≠a del protocolo)
+- [ ] Interpretar resultados en gr√°ficos
 - [ ] Leer logs
 
 ### Nivel 3: Desarrollador (2 horas)
 - [ ] Todo lo de Nivel 2
-- [ ] `CHANGELOG.md` (quÈ cambiÛ)
-- [ ] `AUDITORIA_SEGURIDAD.md` (garantÌas tÈcnicas)
-- [ ] Revisar cÛdigo en `rigidez_espectral.py`
-- [ ] Explorar funciones p˙blicas
+- [ ] `CHANGELOG.md` (qu√© cambi√≥)
+- [ ] `AUDITORIA_SEGURIDAD.md` (garant√≠as t√©cnicas)
+- [ ] Revisar c√≥digo en `rigidez_espectral.py`
+- [ ] Explorar funciones p√∫blicas
 
 ### Nivel 4: Auditor (4+ horas)
 - [ ] Todo lo anterior
-- [ ] Revisar cÛdigo lÌnea por lÌnea
+- [ ] Revisar c√≥digo l√≠nea por l√≠nea
 - [ ] Ejecutar TEST_SUITE.py y verificar cada punto
-- [ ] Revisar implementaciÛn de logging
+- [ ] Revisar implementaci√≥n de logging
 - [ ] Verificar type hints
 - [ ] Revisar docstrings
 
 ---
 
-## ?? SoluciÛn de Problemas
+## ?? Soluci√≥n de Problemas
 
-| Problema | SoluciÛn | Archivo |
+| Problema | Soluci√≥n | Archivo |
 |----------|----------|---------|
-| "øCÛmo ejecuto esto?" | Leer secciÛn "CÛmo Ejecutar" | RESUMEN_IMPLEMENTACION.md |
-| "No entiendo la teorÌa" | Leer protocolo teÛrico | README_PROTOCOLO_RIGIDEZ.md |
-| "øEs seguro este cÛdigo?" | Leer auditorÌa | AUDITORIA_SEGURIDAD.md |
-| "øQuÈ fue cambiado?" | Leer changelog | CHANGELOG.md |
+| "¬øC√≥mo ejecuto esto?" | Leer secci√≥n "C√≥mo Ejecutar" | RESUMEN_IMPLEMENTACION.md |
+| "No entiendo la teor√≠a" | Leer protocolo te√≥rico | README_PROTOCOLO_RIGIDEZ.md |
+| "¬øEs seguro este c√≥digo?" | Leer auditor√≠a | AUDITORIA_SEGURIDAD.md |
+| "¬øQu√© fue cambiado?" | Leer changelog | CHANGELOG.md |
 | "Necesito verificar funcionalidad" | Ejecutar tests | TEST_SUITE.py |
 | "Fallo al ejecutar" | Revisar logs, leer AUDITORIA_SEGURIDAD.md | Archivos variados |
 
@@ -342,37 +343,37 @@ TEST_SUITE.py
 
 ## ? Checklist Final: Proyecto Completo
 
-- [x] CÛdigo fuente auditado y mejorado
-- [x] ValidaciÛn de entrada en todos los puntos
+- [x] C√≥digo fuente auditado y mejorado
+- [x] Validaci√≥n de entrada en todos los puntos
 - [x] Manejo robusto de excepciones
 - [x] Logging centralizado
 - [x] Type hints PEP 484
 - [x] Docstrings Numpy style
 - [x] Optimizaciones JIT
-- [x] DocumentaciÛn tÈcnica completa
-- [x] AuditorÌa de seguridad
+- [x] Documentaci√≥n t√©cnica completa
+- [x] Auditor√≠a de seguridad
 - [x] Suite de pruebas
 - [x] Changelog detallado
-- [x] Õndice completo
+- [x] √çndice completo
 
 **Status Final**: ? **PROYECTO COMPLETADO**
 
 ---
 
-## ?? ConclusiÛn
+## ?? Conclusi√≥n
 
-Se ha completado una **auditorÌa exhaustiva** del cÛdigo, mejorando:
+Se ha completado una **auditor√≠a exhaustiva** del c√≥digo, mejorando:
 
-? **Robustez**: ValidaciÛn completa + manejo de errores
+? **Robustez**: Validaci√≥n completa + manejo de errores
 ? **Mantenibilidad**: Logging + type hints + docstrings  
-? **Seguridad**: ProtecciÛn contra errores numÈricos
-? **DocumentaciÛn**: 6 archivos MD + docstrings en cÛdigo
-? **Testing**: Suite de validaciÛn r·pida
+? **Seguridad**: Protecci√≥n contra errores num√©ricos
+? **Documentaci√≥n**: 6 archivos MD + docstrings en c√≥digo
+? **Testing**: Suite de validaci√≥n r√°pida
 
-**El proyecto est· listo para uso experimental con garantÌas profesionales de calidad**.
+**El proyecto est√° listo para uso experimental con garant√≠as profesionales de calidad**.
 
 ---
 
-*Documento: ÕNDICE_COMPLETO.md*
-*VersiÛn: 1.0*
+*Documento: √çNDICE_COMPLETO.md*
+*Versi√≥n: 1.0*
 *Fecha: 2024*

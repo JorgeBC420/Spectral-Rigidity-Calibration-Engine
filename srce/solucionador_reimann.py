@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
@@ -9,40 +10,40 @@ import time
 import pickle
 
 # ============================================================================
-# IMPORTAR MÓDULO DE RIGIDEZ ESPECTRAL
+# IMPORTAR MÃ“DULO DE RIGIDEZ ESPECTRAL
 # ============================================================================
 try:
     from rigidez_espectral import ejecutar_analisis_completo
     RIGIDEZ_DISPONIBLE = True
 except ImportError:
     RIGIDEZ_DISPONIBLE = False
-    print("??  Módulo rigidez_espectral no disponible (crear rigidez_espectral.py)")
+    print("??  MÃ³dulo rigidez_espectral no disponible (crear rigidez_espectral.py)")
 
 mp.mp.dps = 50
 
 # ============================================================================
-# ANÁLISIS RIGUROSO DEL ESPACIADO MÍNIMO - VERSIÓN CORREGIDA
+# ANÃLISIS RIGUROSO DEL ESPACIADO MÃNIMO - VERSIÃ“N CORREGIDA
 # ============================================================================
 #
-# CORRECCIONES CRÍTICAS IMPLEMENTADAS:
+# CORRECCIONES CRÃTICAS IMPLEMENTADAS:
 # ====================================
-# 1. Ecuación del espaciado derivada correctamente
-# 2. Sin "corrección infinita" heurística no controlada
+# 1. EcuaciÃ³n del espaciado derivada correctamente
+# 2. Sin "correcciÃ³n infinita" heurÃ­stica no controlada
 # 3. Lenguaje preciso: observaciones puntuales, no conclusiones globales
 #
-# ADVERTENCIAS MATEMÁTICAS:
+# ADVERTENCIAS MATEMÃTICAS:
 # ========================
 # - Sistema truncado (N finito), NO el flujo real de de Bruijn-Newman
-# - Análisis PUNTUAL en configuración inicial, NO dinámico
+# - AnÃ¡lisis PUNTUAL en configuraciÃ³n inicial, NO dinÃ¡mico
 # - NO decide RH, solo informa sobre estructura local
 # ============================================================================
 
 # ============================================================================
-# CACHÉ DE CEROS
+# CACHÃ‰ DE CEROS
 # ============================================================================
 
 class CacheZeros:
-    """Caché persistente de ceros de Riemann."""
+    """CachÃ© persistente de ceros de Riemann."""
     
     def __init__(self, archivo='cache_ceros_riemann.pkl'):
         self.archivo = archivo
@@ -53,9 +54,9 @@ class CacheZeros:
         try:
             with open(self.archivo, 'rb') as f:
                 self.ceros = pickle.load(f)
-            print(f"? Caché: {len(self.ceros)} ceros disponibles")
+            print(f"? CachÃ©: {len(self.ceros)} ceros disponibles")
         except FileNotFoundError:
-            print("  Iniciando caché nueva")
+            print("  Iniciando cachÃ© nueva")
     
     def guardar(self):
         with open(self.archivo, 'wb') as f:
@@ -117,7 +118,7 @@ def calcular_espaciados(gamma: np.ndarray) -> np.ndarray:
 
 @jit(nopython=True, fastmath=True)
 def espaciado_minimo(gamma: np.ndarray) -> Tuple[float, int]:
-    """Encuentra (d_min, índice)."""
+    """Encuentra (d_min, Ã­ndice)."""
     espaciados = calcular_espaciados(gamma)
     idx = 0
     val_min = espaciados[0]
@@ -133,19 +134,19 @@ def espaciado_minimo(gamma: np.ndarray) -> Tuple[float, int]:
 @jit(nopython=True, fastmath=True)
 def ecuacion_espaciado_minimo_correcta(gamma: np.ndarray, idx: int) -> Tuple[float, float, float]:
     """
-    VERSIÓN CORREGIDA de la ecuación del espaciado.
+    VERSIÃ“N CORREGIDA de la ecuaciÃ³n del espaciado.
     
-    Para d_i = ?_{i+1} - ?_i, la evolución temporal es:
+    Para d_i = ?_{i+1} - ?_i, la evoluciÃ³n temporal es:
     
     ?_i = ??_{i+1} - ??_i
         = 2 S_{j?i+1} 1/(?_{i+1} - ?_j) - 2 S_{j?i} 1/(?_i - ?_j)
     
-    Los términos con j=i en la primera suma y j=i+1 en la segunda son singulares:
+    Los tÃ©rminos con j=i en la primera suma y j=i+1 en la segunda son singulares:
     
-    Término j=i en S_{j?i+1}:  1/(?_{i+1} - ?_i) = 1/d_i
-    Término j=i+1 en S_{j?i}:  1/(?_i - ?_{i+1}) = -1/d_i
+    TÃ©rmino j=i en S_{j?i+1}:  1/(?_{i+1} - ?_i) = 1/d_i
+    TÃ©rmino j=i+1 en S_{j?i}:  1/(?_i - ?_{i+1}) = -1/d_i
     
-    Separando estos términos singulares:
+    Separando estos tÃ©rminos singulares:
     
     ?_i = 2/d_i - 2/(-d_i) + R_i
         = 2/d_i + 2/d_i + R_i
@@ -161,10 +162,10 @@ def ecuacion_espaciado_minimo_correcta(gamma: np.ndarray, idx: int) -> Tuple[flo
     
     d_i = gamma[i + 1] - gamma[i]
     
-    # Término singular: 4/d_i
+    # TÃ©rmino singular: 4/d_i
     termino_singular = 4.0 / d_i
     
-    # Término regular R_i: suma de todas las contribuciones NO singulares
+    # TÃ©rmino regular R_i: suma de todas las contribuciones NO singulares
     R_i = 0.0
     
     # Contribuciones de ?_{i+1}:
@@ -249,25 +250,25 @@ def monitorear_coalescencia(sol):
     return np.array(d_min_vals)
 
 # ============================================================================
-# ANÁLISIS PUNTUAL DEL ESPACIADO
+# ANÃLISIS PUNTUAL DEL ESPACIADO
 # ============================================================================
 
 def analizar_espaciado_puntual(gamma: np.ndarray, verbose: bool = True):
     """
-    Análisis PUNTUAL (no dinámico) del espaciado mínimo.
+    AnÃ¡lisis PUNTUAL (no dinÃ¡mico) del espaciado mÃ­nimo.
     
     Calcula:
-    - d_min: espaciado mínimo
-    - ?_min: velocidad instantánea del espaciado (en configuración actual)
-    - Decomposición del término regular
+    - d_min: espaciado mÃ­nimo
+    - ?_min: velocidad instantÃ¡nea del espaciado (en configuraciÃ³n actual)
+    - DecomposiciÃ³n del tÃ©rmino regular
     
-    IMPORTANTE: Este es un análisis LOCAL en la configuración inicial.
-    NO predice comportamiento dinámico futuro.
+    IMPORTANTE: Este es un anÃ¡lisis LOCAL en la configuraciÃ³n inicial.
+    NO predice comportamiento dinÃ¡mico futuro.
     """
     d_min, idx = espaciado_minimo(gamma)
     d_i, term_sing, term_reg = ecuacion_espaciado_minimo_correcta(gamma, idx)
     
-    # Velocidad instantánea del espaciado
+    # Velocidad instantÃ¡nea del espaciado
     d_dot = term_sing + term_reg
     
     # Ratio de dominancia
@@ -276,27 +277,27 @@ def analizar_espaciado_puntual(gamma: np.ndarray, verbose: bool = True):
     else:
         ratio = np.inf
     
-    # Descomposición espacial
+    # DescomposiciÃ³n espacial
     R_cerc, R_med, R_lej, R_tot = descomponer_termino_regular(gamma, idx)
     
     if verbose:
         print(f"\n{'-'*70}")
-        print(f"ANÁLISIS PUNTUAL DEL ESPACIADO MÍNIMO")
+        print(f"ANÃLISIS PUNTUAL DEL ESPACIADO MÃNIMO")
         print(f"{'-'*70}")
         print(f"N = {len(gamma)}")
-        print(f"Espaciado mínimo:      d_min = {d_min:.10e}")
-        print(f"Posición:              i = {idx} (entre ?_{idx+1} y ?_{idx+2})")
+        print(f"Espaciado mÃ­nimo:      d_min = {d_min:.10e}")
+        print(f"PosiciÃ³n:              i = {idx} (entre ?_{idx+1} y ?_{idx+2})")
         print(f"?_{idx+1} = {gamma[idx]:.8f}")
         print(f"?_{idx+2} = {gamma[idx+1]:.8f}")
-        print(f"\nECUACIÓN: ?_i = 4/d_i + R_i")
+        print(f"\nECUACIÃ“N: ?_i = 4/d_i + R_i")
         print(f"{'-'*70}")
-        print(f"Término singular:      4/d_i = {term_sing:+.10e}")
-        print(f"Término regular:       R_i   = {term_reg:+.10e}")
+        print(f"TÃ©rmino singular:      4/d_i = {term_sing:+.10e}")
+        print(f"TÃ©rmino regular:       R_i   = {term_reg:+.10e}")
         print(f"{'-'*70}")
-        print(f"Velocidad instantánea: ?_i   = {d_dot:+.10e}")
+        print(f"Velocidad instantÃ¡nea: ?_i   = {d_dot:+.10e}")
         print(f"Ratio |singular/regular|:      {ratio:.4f}")
         
-        print(f"\nDESCOMPOSICIÓN DE R_i POR DISTANCIA:")
+        print(f"\nDESCOMPOSICIÃ“N DE R_i POR DISTANCIA:")
         print(f"{'-'*70}")
         if abs(R_tot) > 1e-15:
             print(f"Ceros cercanos  (|j-i| < 10):   {R_cerc:+.8e}  ({100*R_cerc/R_tot:+6.1f}%)")
@@ -309,25 +310,25 @@ def analizar_espaciado_puntual(gamma: np.ndarray, verbose: bool = True):
         print(f"{'-'*70}")
         print(f"TOTAL R_i:                       {R_tot:+.10e}")
         
-        print(f"\nINTERPRETACIÓN LOCAL:")
+        print(f"\nINTERPRETACIÃ“N LOCAL:")
         print(f"{'-'*70}")
         
         if d_dot > 0:
-            print(f"? ?_i > 0: Espaciado AUMENTA instantáneamente")
+            print(f"? ?_i > 0: Espaciado AUMENTA instantÃ¡neamente")
             print(f"  (tendencia local repulsiva)")
         else:
-            print(f"? ?_i < 0: Espaciado DISMINUYE instantáneamente")
+            print(f"? ?_i < 0: Espaciado DISMINUYE instantÃ¡neamente")
             print(f"  (tendencia local atractiva)")
         
         if ratio > 10:
-            print(f"? Término singular DOMINA fuertemente (ratio > 10)")
+            print(f"? TÃ©rmino singular DOMINA fuertemente (ratio > 10)")
         elif ratio > 2:
-            print(f"˜ Término singular domina moderadamente (2 < ratio < 10)")
+            print(f"Â˜ TÃ©rmino singular domina moderadamente (2 < ratio < 10)")
         else:
-            print(f"? Términos competitivos o regular domina (ratio = 2)")
+            print(f"? TÃ©rminos competitivos o regular domina (ratio = 2)")
         
-        print(f"\n??  ADVERTENCIA: Este es un análisis PUNTUAL en la configuración")
-        print(f"   inicial. NO predice comportamiento dinámico a largo plazo.")
+        print(f"\n??  ADVERTENCIA: Este es un anÃ¡lisis PUNTUAL en la configuraciÃ³n")
+        print(f"   inicial. NO predice comportamiento dinÃ¡mico a largo plazo.")
         print(f"{'-'*70}\n")
     
     return {
@@ -346,7 +347,7 @@ def analizar_espaciado_puntual(gamma: np.ndarray, verbose: bool = True):
 
 def estudiar_espaciado_vs_N(N_values: List[int]):
     """
-    Estudia cómo varían las propiedades del espaciado con N.
+    Estudia cÃ³mo varÃ­an las propiedades del espaciado con N.
     
     OBJETIVO: Observar si las propiedades locales se mantienen
     consistentes a medida que N aumenta.
@@ -368,7 +369,7 @@ def estudiar_espaciado_vs_N(N_values: List[int]):
               f"ratio = {analisis['ratio']:.2f}, "
               f"tendencia: {'repulsiva' if analisis['tendencia_local_repulsiva'] else 'atractiva'}")
     
-    # Visualización
+    # VisualizaciÃ³n
     Ns = [r[0] for r in resultados]
     d_mins = [r[1]['d_min'] for r in resultados]
     d_dots = [r[1]['d_dot'] for r in resultados]
@@ -382,7 +383,7 @@ def estudiar_espaciado_vs_N(N_values: List[int]):
     ax = axes[0, 0]
     ax.semilogy(Ns, d_mins, 'o-', linewidth=2, markersize=8, color='#2E86AB',
                 label='Observado')
-    # Predicción teórica: d_min ~ log(N)/N
+    # PredicciÃ³n teÃ³rica: d_min ~ log(N)/N
     N_arr = np.array(Ns)
     d_teorico = np.log(N_arr) / N_arr
     escala = d_mins[0] / d_teorico[0]
@@ -390,7 +391,7 @@ def estudiar_espaciado_vs_N(N_values: List[int]):
                 label='~ log(N)/N')
     ax.set_xlabel('N', fontsize=12)
     ax.set_ylabel('$d_{\\min}$', fontsize=12)
-    ax.set_title('Espaciado Mínimo vs N', fontsize=13, fontweight='bold')
+    ax.set_title('Espaciado MÃ­nimo vs N', fontsize=13, fontweight='bold')
     ax.legend()
     ax.grid(alpha=0.3, which='both')
     
@@ -401,7 +402,7 @@ def estudiar_espaciado_vs_N(N_values: List[int]):
     ax.plot(Ns, d_dots, '-', linewidth=1.5, color='gray', alpha=0.5)
     ax.axhline(0, color='black', linestyle='--', linewidth=2)
     ax.set_xlabel('N', fontsize=12)
-    ax.set_ylabel('$\\dot{d}_{\\min}$ (velocidad instantánea)', fontsize=12)
+    ax.set_ylabel('$\\dot{d}_{\\min}$ (velocidad instantÃ¡nea)', fontsize=12)
     ax.set_title('Tendencia Local del Espaciado', fontsize=13, fontweight='bold')
     ax.grid(alpha=0.3)
     
@@ -414,11 +415,11 @@ def estudiar_espaciado_vs_N(N_values: List[int]):
                label='Dominio moderado')
     ax.set_xlabel('N', fontsize=12)
     ax.set_ylabel('|Singular/Regular|', fontsize=12)
-    ax.set_title('Dominancia del Término Singular', fontsize=13, fontweight='bold')
+    ax.set_title('Dominancia del TÃ©rmino Singular', fontsize=13, fontweight='bold')
     ax.legend()
     ax.grid(alpha=0.3, which='both')
     
-    # Panel 4: Comparación términos
+    # Panel 4: ComparaciÃ³n tÃ©rminos
     ax = axes[1, 0]
     ax.semilogy(Ns, np.abs(term_sing), 'o-', linewidth=2, markersize=8, 
                 color='#2E86AB', label='|4/d_i|')
@@ -426,7 +427,7 @@ def estudiar_espaciado_vs_N(N_values: List[int]):
                 color='#F18F01', label='|R_i|')
     ax.set_xlabel('N', fontsize=12)
     ax.set_ylabel('Magnitud', fontsize=12)
-    ax.set_title('Comparación de Términos (escala log)', fontsize=13, fontweight='bold')
+    ax.set_title('ComparaciÃ³n de TÃ©rminos (escala log)', fontsize=13, fontweight='bold')
     ax.legend()
     ax.grid(alpha=0.3, which='both')
     
@@ -438,11 +439,11 @@ def estudiar_espaciado_vs_N(N_values: List[int]):
     ax.axvline(10, color='green', linestyle='--', linewidth=2, label='Umbral fuerte')
     ax.set_xlabel('Ratio |Singular/Regular|', fontsize=12)
     ax.set_ylabel('Frecuencia', fontsize=12)
-    ax.set_title('Distribución de Ratios', fontsize=13, fontweight='bold')
+    ax.set_title('DistribuciÃ³n de Ratios', fontsize=13, fontweight='bold')
     ax.legend()
     ax.grid(alpha=0.3)
     
-    # Panel 6: Resumen estadístico
+    # Panel 6: Resumen estadÃ­stico
     ax = axes[1, 2]
     ax.axis('off')
     
@@ -452,56 +453,56 @@ def estudiar_espaciado_vs_N(N_values: List[int]):
     
     resumen = f"""
 +---------------------------------------+
-¦   RESUMEN ESTADÍSTICO                 ¦
-¦---------------------------------------¦
-¦                                       ¦
-¦  Rango N: [{min(Ns)}, {max(Ns)}]              ¦
-¦  Puntos analizados: {len(Ns):3d}              ¦
-¦                                       ¦
-¦  OBSERVACIONES PUNTUALES              ¦
-¦  -----------------------------------  ¦
-¦  ? > 0 (tendencia repulsiva):         ¦
-¦    {100*mayoria_positivos:.0f}% de los casos                 ¦
-¦                                       ¦
-¦  Término singular domina (ratio>2):  ¦
-¦    {'SÍ en todos' if todos_dominantes else f'{sum(r[1]["ratio"] > 2 for r in resultados)}/{len(resultados)} casos':^33s} ¦
-¦                                       ¦
-¦  Ratio promedio: {np.mean(ratios):6.2f}              ¦
-¦  Ratio mediano:  {np.median(ratios):6.2f}              ¦
-¦                                       ¦
-¦  INTERPRETACIÓN                       ¦
-¦  -----------------------------------  ¦
+Â¦   RESUMEN ESTADÃSTICO                 Â¦
+Â¦---------------------------------------Â¦
+Â¦                                       Â¦
+Â¦  Rango N: [{min(Ns)}, {max(Ns)}]              Â¦
+Â¦  Puntos analizados: {len(Ns):3d}              Â¦
+Â¦                                       Â¦
+Â¦  OBSERVACIONES PUNTUALES              Â¦
+Â¦  -----------------------------------  Â¦
+Â¦  ? > 0 (tendencia repulsiva):         Â¦
+Â¦    {100*mayoria_positivos:.0f}% de los casos                 Â¦
+Â¦                                       Â¦
+Â¦  TÃ©rmino singular domina (ratio>2):  Â¦
+Â¦    {'SÃ en todos' if todos_dominantes else f'{sum(r[1]["ratio"] > 2 for r in resultados)}/{len(resultados)} casos':^33s} Â¦
+Â¦                                       Â¦
+Â¦  Ratio promedio: {np.mean(ratios):6.2f}              Â¦
+Â¦  Ratio mediano:  {np.median(ratios):6.2f}              Â¦
+Â¦                                       Â¦
+Â¦  INTERPRETACIÃ“N                       Â¦
+Â¦  -----------------------------------  Â¦
 """
     
     if todos_positivos and todos_dominantes:
-        interpretacion = """¦  ? Tendencia repulsiva observada     ¦
-¦    consistentemente en configuración  ¦
-¦    inicial para todos los N           ¦
-¦                                       ¦
-¦  ??  ADVERTENCIA CRÍTICA:              ¦
-¦  Esto NO demuestra imposibilidad de   ¦
-¦  coalescencia dinámica. Solo observa  ¦
-¦  comportamiento puntual inicial.      ¦"""
+        interpretacion = """Â¦  ? Tendencia repulsiva observada     Â¦
+Â¦    consistentemente en configuraciÃ³n  Â¦
+Â¦    inicial para todos los N           Â¦
+Â¦                                       Â¦
+Â¦  ??  ADVERTENCIA CRÃTICA:              Â¦
+Â¦  Esto NO demuestra imposibilidad de   Â¦
+Â¦  coalescencia dinÃ¡mica. Solo observa  Â¦
+Â¦  comportamiento puntual inicial.      Â¦"""
     elif mayoria_positivos > 0.8:
-        interpretacion = """¦  ˜ Tendencia repulsiva predominante  ¦
-¦    pero no universal                  ¦
-¦                                       ¦
-¦  ??  Se requiere análisis dinámico     ¦
-¦    completo para conclusiones         ¦"""
+        interpretacion = """Â¦  Â˜ Tendencia repulsiva predominante  Â¦
+Â¦    pero no universal                  Â¦
+Â¦                                       Â¦
+Â¦  ??  Se requiere anÃ¡lisis dinÃ¡mico     Â¦
+Â¦    completo para conclusiones         Â¦"""
     else:
-        interpretacion = """¦  ??  Comportamiento mixto o no claro   ¦
-¦                                       ¦
-¦  Se requiere revisión del modelo      ¦
-¦  o análisis más profundo              ¦"""
+        interpretacion = """Â¦  ??  Comportamiento mixto o no claro   Â¦
+Â¦                                       Â¦
+Â¦  Se requiere revisiÃ³n del modelo      Â¦
+Â¦  o anÃ¡lisis mÃ¡s profundo              Â¦"""
     
-    resumen += interpretacion + "\n¦                                       ¦\n"
+    resumen += interpretacion + "\nÂ¦                                       Â¦\n"
     resumen += "+---------------------------------------+"
     
     ax.text(0.05, 0.5, resumen, fontsize=10, verticalalignment='center',
             fontfamily='monospace',
             bbox=dict(boxstyle='round', facecolor='lightyellow', alpha=0.3))
     
-    plt.suptitle('Análisis Puntual del Espaciado Mínimo vs N\n(Sistema Log-Gas Truncado)', 
+    plt.suptitle('AnÃ¡lisis Puntual del Espaciado MÃ­nimo vs N\n(Sistema Log-Gas Truncado)', 
                  fontsize=14, fontweight='bold')
     plt.tight_layout()
     plt.savefig('analisis_espaciado_vs_N.png', dpi=200, bbox_inches='tight')
@@ -517,14 +518,14 @@ def estudiar_espaciado_vs_N(N_values: List[int]):
 if __name__ == "__main__":
 
     print("\n" + "="*80)
-    print("ANÁLISIS DOBLE: LOG-GAS Y FLUJO DINÁMICO")
+    print("ANÃLISIS DOBLE: LOG-GAS Y FLUJO DINÃMICO")
     print("="*80)
 
     # ==============================================================
-    # UNIVERSO A — Análisis puntual
+    # UNIVERSO A Â— AnÃ¡lisis puntual
     # ==============================================================
 
-    print("\n[UNIVERSO A] Análisis puntual inicial")
+    print("\n[UNIVERSO A] AnÃ¡lisis puntual inicial")
 
     N = 50
     gamma = CACHE.obtener(N)
@@ -532,44 +533,44 @@ if __name__ == "__main__":
     analisis_inicial = analizar_espaciado_puntual(gamma, verbose=True)
 
     # ==============================================================
-    # UNIVERSO B — Evolución dinámica
+    # UNIVERSO B Â— EvoluciÃ³n dinÃ¡mica
     # ==============================================================
 
-    print("\n[UNIVERSO B] Integrando flujo hacia atrás...")
+    print("\n[UNIVERSO B] Integrando flujo hacia atrÃ¡s...")
 
     try:
         sol = integrar_flujo(gamma, t_span=(-0.05, 0), n_eval=300)
 
         d_min_vals = monitorear_coalescencia(sol)
 
-        print(f"\nEspaciado mínimo en t={sol.t[0]:.4f}: {d_min_vals[0]:.6e}")
-        print(f"Espaciado mínimo en t=0:          {d_min_vals[-1]:.6e}")
+        print(f"\nEspaciado mÃ­nimo en t={sol.t[0]:.4f}: {d_min_vals[0]:.6e}")
+        print(f"Espaciado mÃ­nimo en t=0:          {d_min_vals[-1]:.6e}")
 
         if np.min(d_min_vals) < 1e-6:
             print("? Posible coalescencia detectada")
         else:
             print("? No se detecta coalescencia en el intervalo integrado")
 
-        # Gráfico del espaciado mínimo en el tiempo
+        # GrÃ¡fico del espaciado mÃ­nimo en el tiempo
         plt.figure(figsize=(8,5))
         plt.plot(sol.t, d_min_vals, linewidth=2)
         plt.xlabel("t")
         plt.ylabel("d_min(t)")
-        plt.title("Evolución del Espaciado Mínimo (Sistema Truncado)")
+        plt.title("EvoluciÃ³n del Espaciado MÃ­nimo (Sistema Truncado)")
         plt.grid(alpha=0.3)
         plt.tight_layout()
         plt.savefig("evolucion_dmin.png", dpi=200)
         plt.show()
 
     except Exception as e:
-        print("? Error durante integración dinámica:", e)
+        print("? Error durante integraciÃ³n dinÃ¡mica:", e)
 
     # ==============================================================
-    # EXPERIMENTO 1 — Análisis detallado
+    # EXPERIMENTO 1 Â— AnÃ¡lisis detallado
     # ==============================================================
 
     print("\n" + "+" + "-"*78 + "+")
-    print("¦" + "  EXPERIMENTO 1: Análisis Detallado (N = 1000)".center(78) + "¦")
+    print("Â¦" + "  EXPERIMENTO 1: AnÃ¡lisis Detallado (N = 1000)".center(78) + "Â¦")
     print("+" + "-"*78 + "+\n")
 
     N_detallado = 1000
@@ -577,11 +578,11 @@ if __name__ == "__main__":
     analizar_espaciado_puntual(gamma_test, verbose=True)
 
     # ==============================================================
-    # EXPERIMENTO 2 — Escala vs N
+    # EXPERIMENTO 2 Â— Escala vs N
     # ==============================================================
 
     print("\n" + "+" + "-"*78 + "+")
-    print("¦" + "  EXPERIMENTO 2: Comportamiento vs N".center(78) + "¦")
+    print("Â¦" + "  EXPERIMENTO 2: Comportamiento vs N".center(78) + "Â¦")
     print("+" + "-"*78 + "+\n")
 
     N_VALUES = [100, 200, 500, 1000, 2000, 3000]
@@ -592,12 +593,12 @@ if __name__ == "__main__":
     estudiar_espaciado_vs_N(N_VALUES)
 
     # ==============================================================
-    # EXPERIMENTO 3 — PROTOCOLO DE RIGIDEZ ESPECTRAL
+    # EXPERIMENTO 3 Â— PROTOCOLO DE RIGIDEZ ESPECTRAL
     # ==============================================================
 
     if RIGIDEZ_DISPONIBLE:
         print("\n" + "?" + "?"*78 + "?")
-        print("?" + "  EXPERIMENTO 3: Rigidez Espectral (Protocolo de Validación)".center(78) + "?")
+        print("?" + "  EXPERIMENTO 3: Rigidez Espectral (Protocolo de ValidaciÃ³n)".center(78) + "?")
         print("?" + "?"*78 + "?\n")
         
         N_RIGIDEZ = [100, 200, 500, 1000, 2000]
@@ -613,18 +614,18 @@ if __name__ == "__main__":
             import traceback
             traceback.print_exc()
     else:
-        print("\n??  EXPERIMENTO 3 omitido: módulo rigidez_espectral no disponible")
+        print("\n??  EXPERIMENTO 3 omitido: mÃ³dulo rigidez_espectral no disponible")
 
     # ==============================================================
     # CIERRE
     # ==============================================================
 
     print("\n" + "="*80)
-    print("? ANÁLISIS COMPLETADO")
+    print("? ANÃLISIS COMPLETADO")
     print("="*80)
     print("\nArchivos generados:")
-    print(" • analisis_espaciado_vs_N.png")
-    print(" • evolucion_dmin.png")
+    print(" Â• analisis_espaciado_vs_N.png")
+    print(" Â• evolucion_dmin.png")
     print()
     print("""
 OBSERVACIONES PRINCIPALES:
@@ -632,40 +633,40 @@ OBSERVACIONES PRINCIPALES:
 
 1. COMPORTAMIENTO PUNTUAL DEL ESPACIADO
    -------------------------------------
-   En la configuración inicial de ceros de Riemann:
-   • El término singular 4/d_i típicamente domina sobre R_i
-   • La velocidad instantánea ?_i suele ser positiva
-   • Esto sugiere tendencia local repulsiva
+   En la configuraciÃ³n inicial de ceros de Riemann:
+   Â• El tÃ©rmino singular 4/d_i tÃ­picamente domina sobre R_i
+   Â• La velocidad instantÃ¡nea ?_i suele ser positiva
+   Â• Esto sugiere tendencia local repulsiva
 
 2. ESCALAMIENTO CON N
    -------------------
-   • d_min ~ log(N)/N (consistente con teoría de números)
-   • El ratio |singular/regular| se mantiene relativamente estable
-   • Las propiedades locales parecen robustas
+   Â• d_min ~ log(N)/N (consistente con teorÃ­a de nÃºmeros)
+   Â• El ratio |singular/regular| se mantiene relativamente estable
+   Â• Las propiedades locales parecen robustas
 
-3. ESTRUCTURA DEL TÉRMINO REGULAR
+3. ESTRUCTURA DEL TÃ‰RMINO REGULAR
    -------------------------------
-   • Dominado por ceros cercanos (|j - i| < 10)
-   • Contribución de ceros lejanos es pequeña
-   • Esto justifica parcialmente el truncamiento
+   Â• Dominado por ceros cercanos (|j - i| < 10)
+   Â• ContribuciÃ³n de ceros lejanos es pequeÃ±a
+   Â• Esto justifica parcialmente el truncamiento
 
-LIMITACIONES CRÍTICAS:
+LIMITACIONES CRÃTICAS:
 =====================
 
-? ANÁLISIS PUNTUAL vs DINÁMICO:
+? ANÃLISIS PUNTUAL vs DINÃMICO:
    Este programa calcula ?_i en t = 0 solamente.
-   NO integra la evolución temporal.
+   NO integra la evoluciÃ³n temporal.
    NO predice comportamiento futuro.
 
 ? SISTEMA TRUNCADO vs COMPLETO:
-   Ignora interacción con ceros fuera de [?_1, ?_N].
+   Ignora interacciÃ³n con ceros fuera de [?_1, ?_N].
    NO es el flujo real de de Bruijn-Newman.
-   El error de truncación no está controlado rigurosamente.
+   El error de truncaciÃ³n no estÃ¡ controlado rigurosamente.
 
-? NO DECIDE LA HIPÓTESIS DE RIEMANN:
+? NO DECIDE LA HIPÃ“TESIS DE RIEMANN:
    Observaciones sobre sistema finito ? teoremas sobre sistema infinito.
-   Compatibilidad numérica ? demostración matemática.
+   Compatibilidad numÃ©rica ? demostraciÃ³n matemÃ¡tica.
 
-QUÉ SE NECESITA PARA AVANZAR:
+QUÃ‰ SE NECESITA PARA AVANZAR:
 ==================
 """)

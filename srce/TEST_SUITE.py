@@ -1,11 +1,12 @@
+# -*- coding: utf-8 -*-
 """
-TEST SUITE: VerificaciÛn de Seguridad y Funcionalidad
+TEST SUITE: Verificaci√≥n de Seguridad y Funcionalidad
 ======================================================
 
-Script ligero para verificar que el mÛdulo rigidez_espectral
+Script ligero para verificar que el m√≥dulo rigidez_espectral
 funciona correctamente y maneja excepciones apropiadamente.
 
-NO es un test formal (unittest), sino un script de validaciÛn.
+NO es un test formal (unittest), sino un script de validaci√≥n.
 """
 
 import numpy as np
@@ -17,34 +18,34 @@ print("="*80)
 print("TEST SUITE: rigidez_espectral.py")
 print("="*80)
 
-# Test 1: ValidaciÛn de entrada
-print("\n[TEST 1] ValidaciÛn de entrada")
+# Test 1: Validaci√≥n de entrada
+print("\n[TEST 1] Validaci√≥n de entrada")
 print("-" * 40)
 
 test_cases = [
-    ("generar_uniforme(2)", "OK - MÌnimo v·lido"),
+    ("generar_uniforme(2)", "OK - M√≠nimo v√°lido"),
     ("generar_uniforme(1)", "ValueError - N < 2"),
     ("generar_uniforme(100)", "OK - N normal"),
     ("generar_uniforme(-5)", "ValueError - N negativo"),
-    ("generar_poisson(2)", "OK - MÌnimo v·lido"),
+    ("generar_poisson(2)", "OK - M√≠nimo v√°lido"),
     ("generar_poisson(0)", "ValueError - N = 0"),
     ("generar_gue_normalizado(10, escala=-1)", "ValueError - escala <= 0"),
-    ("generar_gue_normalizado(10, escala=1.0)", "OK - GUE v·lido"),
+    ("generar_gue_normalizado(10, escala=1.0)", "OK - GUE v√°lido"),
 ]
 
 for caso, esperado in test_cases:
     print(f"  {caso:<45} ? {esperado}")
 
-# Test 2: ProtecciÛn numÈrica
-print("\n[TEST 2] ProtecciÛn numÈrica")
+# Test 2: Protecci√≥n num√©rica
+print("\n[TEST 2] Protecci√≥n num√©rica")
 print("-" * 40)
 
 numeric_cases = [
     ("Jacobiano con EPSILON=1e-10", "Evita div/0 con diferencias < 1e-10"),
     ("MAX_VAL = 1e10", "Limita elementos infinitos"),
-    ("NormalizaciÛn con desv=0", "Fallback a desv=1.0"),
+    ("Normalizaci√≥n con desv=0", "Fallback a desv=1.0"),
     ("Gap = 0", "Asigna gap_min=1e-15"),
-    ("CorrelaciÛn NaN", "Fallback a 0.0"),
+    ("Correlaci√≥n NaN", "Fallback a 0.0"),
 ]
 
 for caso, manejo in numeric_cases:
@@ -55,10 +56,10 @@ print("\n[TEST 3] Manejo de excepciones")
 print("-" * 40)
 
 exception_cases = [
-    ("gamma = []", "ValueError - array vacÌo"),
+    ("gamma = []", "ValueError - array vac√≠o"),
     ("gamma = [1.0, nan]", "ValueError - contiene NaN"),
     ("gamma = [1.0, inf]", "ValueError - contiene inf"),
-    ("N < 11 en analizar_modo_blando", "ValueError especÌfico"),
+    ("N < 11 en analizar_modo_blando", "ValueError espec√≠fico"),
     ("vector propio nulo", "ValueError y retorno de defaults"),
     ("eigh() fallido", "RuntimeError con rollback"),
 ]
@@ -71,9 +72,9 @@ print("\n[TEST 4] Logging implementado")
 print("-" * 40)
 
 log_cases = [
-    ("ERROR", "Fallos crÌticos que requieren revisiÛn"),
-    ("WARNING", "AnomalÌas recuperables (cond > 1e12, desv baja)"),
-    ("INFO", "InformaciÛn operacional (estados del protocolo)"),
+    ("ERROR", "Fallos cr√≠ticos que requieren revisi√≥n"),
+    ("WARNING", "Anomal√≠as recuperables (cond > 1e12, desv baja)"),
+    ("INFO", "Informaci√≥n operacional (estados del protocolo)"),
 ]
 
 for nivel, proposito in log_cases:
@@ -92,8 +93,8 @@ seed_cases = [
 for caso, comportamiento in seed_cases:
     print(f"  {caso:<50} ? {comportamiento}")
 
-# Test 6: St·ndares de cÛdigo
-print("\n[TEST 6] Est·ndares de cÛdigo (PEP 484)")
+# Test 6: St√°ndares de c√≥digo
+print("\n[TEST 6] Est√°ndares de c√≥digo (PEP 484)")
 print("-" * 40)
 
 standards = [
@@ -101,22 +102,22 @@ standards = [
     ("Docstrings", "? Formato Numpy style"),
     ("Variable naming", "? snake_case para variables"),
     ("Constantes", "? UPPER_CASE"),
-    ("Comentarios", "? Explicativos en lÛgica compleja"),
+    ("Comentarios", "? Explicativos en l√≥gica compleja"),
 ]
 
 for std, estado in standards:
     print(f"  {std:<25} {estado}")
 
-# Test 7: Limits de precisiÛn
-print("\n[TEST 7] LÌmites de precisiÛn documentados")
+# Test 7: Limits de precisi√≥n
+print("\n[TEST 7] L√≠mites de precisi√≥n documentados")
 print("-" * 40)
 
 limits = [
-    ("EPSILON", "1e-10", "MÌnima distancia entre ceros"),
-    ("MAX_VAL", "1e10", "M·ximo elemento Jacobiano"),
-    ("GAP_MIN", "1e-15", "MÌnimo gap espectral"),
+    ("EPSILON", "1e-10", "M√≠nima distancia entre ceros"),
+    ("MAX_VAL", "1e10", "M√°ximo elemento Jacobiano"),
+    ("GAP_MIN", "1e-15", "M√≠nimo gap espectral"),
     ("cond(J) warning", "1e12", "Matriz mal acondicionada"),
-    ("N m·ximo (seguro)", "5000", "Evitar problemas memoria"),
+    ("N m√°ximo (seguro)", "5000", "Evitar problemas memoria"),
 ]
 
 for constante, valor, significado in limits:
@@ -156,7 +157,7 @@ for libreria, version in compatibility:
         print(f"  {libreria:<20} {version:<15} (NO INSTALADO)")
 
 # Test 9: Matriz de cobertura
-print("\n[TEST 9] Cobertura de funciones p˙blicas")
+print("\n[TEST 9] Cobertura de funciones p√∫blicas")
 print("-" * 40)
 
 functions = [
@@ -185,28 +186,28 @@ print("="*80)
 summary = """
 STATUS: ? LISTO PARA USAR
 
-¡reas de implementaciÛn:
-  ? ValidaciÛn de entrada exhaustiva
-  ? ProtecciÛn contra errores numÈricos
+√Åreas de implementaci√≥n:
+  ? Validaci√≥n de entrada exhaustiva
+  ? Protecci√≥n contra errores num√©ricos
   ? Manejo robusto de excepciones
   ? Logging y trazabilidad
   ? Type hints (PEP 484)
-  ? DocumentaciÛn (Numpy style)
-  ? OptimizaciÛn (JIT + Numba)
+  ? Documentaci√≥n (Numpy style)
+  ? Optimizaci√≥n (JIT + Numba)
   ? Reproducibilidad (seeds)
-  ? LÌmites de precisiÛn documentados
+  ? L√≠mites de precisi√≥n documentados
   ? Compatibilidad de versiones
 
-RECOMENDACIONES PRE-PRODUCCI”N:
+RECOMENDACIONES PRE-PRODUCCI√ìN:
   1. Ejecutar pruebas integrales con datos reales (N=100-2000)
-  2. Monitorear logs en ejecuciÛn inicial
-  3. Verificar que los gr·ficos se guardan correctamente
+  2. Monitorear logs en ejecuci√≥n inicial
+  3. Verificar que los gr√°ficos se guardan correctamente
   4. Confirmar reproducibilidad con seeds
   5. Revisar uso de memoria en N grandes (>3000)
 
 ADVERTENCIAS:
-  ??  GUE: M˙ltiples realizaciones pueden ser lentas (O(n≥) por realizaciÛn)
-  ??  N > 5000: Considerar submuestreo o an·lisis en paralelo
+  ??  GUE: M√∫ltiples realizaciones pueden ser lentas (O(n¬≥) por realizaci√≥n)
+  ??  N > 5000: Considerar submuestreo o an√°lisis en paralelo
   ??  Condicionamiento: Monitorear logs para cond(J) > 1e12
 
 STATUS FINAL: APROBADO PARA USO EXPERIMENTAL
@@ -215,6 +216,6 @@ STATUS FINAL: APROBADO PARA USO EXPERIMENTAL
 print(summary)
 
 print("\n" + "="*80)
-print("Para ejecutar el an·lisis completo:")
+print("Para ejecutar el an√°lisis completo:")
 print("  python solucionador_reimann.py")
 print("="*80)

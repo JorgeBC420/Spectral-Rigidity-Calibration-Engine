@@ -1,8 +1,9 @@
+# -*- coding: utf-8 -*-
 # QUICK START GUIDE
 
 ## ? 5 Minutos para Empezar
 
-### 1?? Verificar InstalaciÛn (30 segundos)
+### 1?? Verificar Instalaci√≥n (30 segundos)
 
 ```bash
 cd "solucionador reimann"
@@ -18,35 +19,35 @@ pip install numpy scipy numba matplotlib mpmath
 
 ---
 
-### 2?? Ejecutar An·lisis (5-30 minutos)
+### 2?? Ejecutar An√°lisis (5-30 minutos)
 
 ```bash
 python solucionador_reimann.py
 ```
 
-El programa generar·:
-- `analisis_espaciado_vs_N.png` (espaciado mÌnimo)
-- `rigidez_espectral_protocolo.png` (comparaciÛn benchmarks)
-- `evolucion_dmin.png` (evoluciÛn temporal)
+El programa generar√°:
+- `analisis_espaciado_vs_N.png` (espaciado m√≠nimo)
+- `rigidez_espectral_protocolo.png` (comparaci√≥n benchmarks)
+- `evolucion_dmin.png` (evoluci√≥n temporal)
 
 ---
 
 ### 3?? Interpretar Resultados
 
-#### Panel 1: Espaciado MÌnimo
-- Eje X: N (n˙mero de ceros)
-- Eje Y: d_min (espaciado m·s pequeÒo)
-- **LÌnea roja**: PredicciÛn teÛrica ~ log(N)/N
-- **LÌnea azul**: Valores observados
+#### Panel 1: Espaciado M√≠nimo
+- Eje X: N (n√∫mero de ceros)
+- Eje Y: d_min (espaciado m√°s peque√±o)
+- **L√≠nea roja**: Predicci√≥n te√≥rica ~ log(N)/N
+- **L√≠nea azul**: Valores observados
 
 #### Panel 2: Rigidez Espectral
 - Eje X: N (escala log)
 - Eje Y: ?? (gap espectral, escala log)
-- **Si Riemann < Uniforme < GUE**: Riemann es m·s rÌgido
+- **Si Riemann < Uniforme < GUE**: Riemann es m√°s r√≠gido
 
 #### Panel 3: Modo Blando
-- Muestra el vector propio del modo m·s flexible
-- **Forma sinusoidal**: Elasticidad continua autÈntica
+- Muestra el vector propio del modo m√°s flexible
+- **Forma sinusoidal**: Elasticidad continua aut√©ntica
 - **Distribuido**: Modo colectivo genuino
 - **En bordes**: Posible artefacto de truncamiento
 
@@ -54,7 +55,7 @@ El programa generar·:
 
 ## ?? Entender los Resultados
 
-### Pregunta 1: øSon los ceros de Riemann especiales?
+### Pregunta 1: ¬øSon los ceros de Riemann especiales?
 
 **Mira**: Panel de "Gap vs N (Log-Log)"
 - Si Riemann sigue otra ley de escalamiento que Uniforme/GUE
@@ -62,30 +63,30 @@ El programa generar·:
 - Si todos siguen ?? ~ N^(-2)
   ? Comportamiento universal
 
-### Pregunta 2: øEs el sistema estable?
+### Pregunta 2: ¬øEs el sistema estable?
 
 **Mira**: Panel de "Modo Blando"
 - Si es sinusoidal
-  ? Sistema se comporta como cuerda el·stica (autÈntico)
-- Si est· localizado en bordes
+  ? Sistema se comporta como cuerda el√°stica (aut√©ntico)
+- Si est√° localizado en bordes
   ? Artefacto de truncamiento (N debe aumentarse)
 
-### Pregunta 3: øQuÈ tan comprimidos est·n los ceros?
+### Pregunta 3: ¬øQu√© tan comprimidos est√°n los ceros?
 
-**Mira**: Panel de "EnergÌa vs N"
+**Mira**: Panel de "Energ√≠a vs N"
 - E ? lentamente
-  ? Equilibrio estadÌstico (esperado)
-- E ? r·pidamente
-  ? Ceros siendo comprimidos (posible anomalÌa)
+  ? Equilibrio estad√≠stico (esperado)
+- E ? r√°pidamente
+  ? Ceros siendo comprimidos (posible anomal√≠a)
 
 ---
 
-## ?? QuÈ Significan los Colores
+## ?? Qu√© Significan los Colores
 
 | Color | Significado |
 |-------|-------------|
 | ?? Azul | Riemann (ceros reales) |
-| ?? P˙rpura | Uniforme (red cristalina) |
+| ?? P√∫rpura | Uniforme (red cristalina) |
 | ?? Verde | GUE (matrices aleatorias) |
 | ?? Naranja | Poisson (sin correlaciones) |
 
@@ -105,17 +106,17 @@ rm cache_ceros_riemann.pkl
 python solucionador_reimann.py
 ```
 
-### EjecuciÛn muy lenta
+### Ejecuci√≥n muy lenta
 - Problema: N muy grande
-- SoluciÛn: Editar `N_VALUES = [100, 200]` en solucionador_reimann.py
+- Soluci√≥n: Editar `N_VALUES = [100, 200]` en solucionador_reimann.py
 
-### Gr·ficos no se generan
+### Gr√°ficos no se generan
 - Problema: Matplotlib no funciona
-- SoluciÛn: Usar `export MPLBACKEND=Agg` (Linux/Mac) o cambiar backend en cÛdigo
+- Soluci√≥n: Usar `export MPLBACKEND=Agg` (Linux/Mac) o cambiar backend en c√≥digo
 
 ---
 
-## ?? Siguiente Paso: Aprender TeorÌa
+## ?? Siguiente Paso: Aprender Teor√≠a
 
 Leer en este orden:
 
@@ -129,7 +130,7 @@ Leer en este orden:
    - Entender limitaciones
 
 3. **`AUDITORIA_SEGURIDAD.md`** (10 min)
-   - Entender garantÌas tÈcnicas
+   - Entender garant√≠as t√©cnicas
 
 ---
 
@@ -161,33 +162,33 @@ from rigidez_espectral import generar_gue_normalizado
 # Con seed = resultado determinista
 gue1 = generar_gue_normalizado(100, seed=42)
 gue2 = generar_gue_normalizado(100, seed=42)
-assert np.allclose(gue1, gue2)  # ? IdÈnticos
+assert np.allclose(gue1, gue2)  # ? Id√©nticos
 ```
 
 ---
 
-## ?? Ayuda R·pida
+## ?? Ayuda R√°pida
 
 ```
-øQuÈ es ???
-  ? Gap espectral (modo m·s blando)
+¬øQu√© es ???
+  ? Gap espectral (modo m√°s blando)
   
-øQuÈ es "modo blando"?
+¬øQu√© es "modo blando"?
   ? Vector propio del autovalor |?_1|
   
-øPor quÈ comparar con GUE?
-  ? Benchmark de m·xima aleatoriedad
+¬øPor qu√© comparar con GUE?
+  ? Benchmark de m√°xima aleatoriedad
   
-øPor quÈ N ? [100, 2000]?
-  ? Rango donde an·lisis es estable
+¬øPor qu√© N ? [100, 2000]?
+  ? Rango donde an√°lisis es estable
   
-øQuÈ significa "bien acondicionado"?
-  ? cond(J) < 1e12 (matriz numÈricamente estable)
+¬øQu√© significa "bien acondicionado"?
+  ? cond(J) < 1e12 (matriz num√©ricamente estable)
 ```
 
 ---
 
-## ? ValidaciÛn R·pida
+## ? Validaci√≥n R√°pida
 
 ```python
 # Verificar que todo funciona
@@ -220,18 +221,18 @@ print("\n??? SISTEMA FUNCIONA CORRECTAMENTE")
 
 ## ?? Objetivos de Este Proyecto
 
-| Objetivo | øLogrado? |
+| Objetivo | ¬øLogrado? |
 |----------|-----------|
 | Analizar estructura de ceros de Riemann | ? |
 | Comparar con benchmarks | ? |
 | Medir rigidez espectral | ? |
-| CÛdigo robusto y seguro | ? |
-| DocumentaciÛn completa | ? |
-| F·cil de usar | ? |
+| C√≥digo robusto y seguro | ? |
+| Documentaci√≥n completa | ? |
+| F√°cil de usar | ? |
 
 ---
 
-## ?? PrÛximos Pasos (Opcional)
+## ?? Pr√≥ximos Pasos (Opcional)
 
 1. **Experimentar con N larger**
    ```python
@@ -240,13 +241,13 @@ print("\n??? SISTEMA FUNCIONA CORRECTAMENTE")
 
 2. **Analizar densidad local**
    - Usar unfolding diferencial
-   - Comparar con semicÌrculo de Wigner
+   - Comparar con semic√≠rculo de Wigner
 
 3. **Estudiar bifurcaciones**
-   - Buscar cambios de rÈgimen en escalamiento
+   - Buscar cambios de r√©gimen en escalamiento
    - Medir transiciones de fase
 
-4. **IntegraciÛn din·mica**
+4. **Integraci√≥n din√°mica**
    - Estudiar flujo de calor de Newman
    - Analizar coalescencia de ceros
 
@@ -260,5 +261,5 @@ print("\n??? SISTEMA FUNCIONA CORRECTAMENTE")
 
 ---
 
-**°Listo! Ahora ejecuta `python solucionador_reimann.py` y disfruta explorando.**
+**¬°Listo! Ahora ejecuta `python solucionador_reimann.py` y disfruta explorando.**
 

@@ -1,10 +1,11 @@
-# RESUMEN DE IMPLEMENTACI”N: Protocolo de Rigidez Espectral
+# -*- coding: utf-8 -*-
+# RESUMEN DE IMPLEMENTACI√ìN: Protocolo de Rigidez Espectral
 
 ## ?? Estado del Proyecto
 
 **Fecha**: 2024
 **Status**: ? IMPLEMENTADO Y AUDITADO
-**Calidad**: Nivel ProducciÛn Experimental
+**Calidad**: Nivel Producci√≥n Experimental
 
 ---
 
@@ -14,21 +15,21 @@
 solucionador reimann/
 ??? solucionador_reimann.py         [MAIN] Programa principal
 ??? rigidez_espectral.py            [MODULE] Protocolo espectral
-??? README_PROTOCOLO_RIGIDEZ.md     [DOCS] Manual tÈcnico
-??? AUDITORIA_SEGURIDAD.md          [AUDIT] AuditorÌa completa
-??? TEST_SUITE.py                   [TEST] Script de validaciÛn
+??? README_PROTOCOLO_RIGIDEZ.md     [DOCS] Manual t√©cnico
+??? AUDITORIA_SEGURIDAD.md          [AUDIT] Auditor√≠a completa
+??? TEST_SUITE.py                   [TEST] Script de validaci√≥n
 ??? RESUMEN_IMPLEMENTACION.md       [THIS] Este documento
-??? cache_ceros_riemann.pkl         [DATA] CachÈ persistente (creado en runtime)
-??? *.png                           [OUTPUT] Gr·ficos generados
+??? cache_ceros_riemann.pkl         [DATA] Cach√© persistente (creado en runtime)
+??? *.png                           [OUTPUT] Gr√°ficos generados
 ```
 
 ---
 
-## ?? QuÈ se implementÛ
+## ?? Qu√© se implement√≥
 
 ### 1. **Protocolo de Rigidez Espectral** (rigidez_espectral.py)
 
-MÛdulo de an·lisis metrolÛgico que compara la estructura din·mica de ceros de Riemann con benchmarks conocidos:
+M√≥dulo de an√°lisis metrol√≥gico que compara la estructura din√°mica de ceros de Riemann con benchmarks conocidos:
 
 **Sistemas comparados**:
 - **Riemann**: Ceros reales de ?(s)
@@ -37,12 +38,12 @@ MÛdulo de an·lisis metrolÛgico que compara la estructura din·mica de ceros de Ri
 - **Poisson**: Proceso Poisson puro
 
 **Observables**:
-- Gap espectral ?? (modo m·s blando)
-- EnergÌa log-gas E
+- Gap espectral ?? (modo m√°s blando)
+- Energ√≠a log-gas E
 - Vector propio del modo blando v?
 - Condicionamiento de Jacobiano cond(J)
 
-### 2. **ValidaciÛn Exhaustiva de Entrada**
+### 2. **Validaci√≥n Exhaustiva de Entrada**
 
 ```python
 ? generar_uniforme(N, soporte)
@@ -56,17 +57,17 @@ MÛdulo de an·lisis metrolÛgico que compara la estructura din·mica de ceros de Ri
    - Soporta reproducibilidad con seed
 
 ? generar_poisson(N, soporte, seed)
-   - ValidaciÛn an·loga
+   - Validaci√≥n an√°loga
    - RNG reproducible
 
 ? analizar_espectro_completo(gamma, label)
    - Detecta NaN/inf antes de procesar
    - Fallback a gamma original si unfolding falla
-   - Limita gap a mÌnimo 1e-15
+   - Limita gap a m√≠nimo 1e-15
    - Advierte si cond(J) > 1e12
 ```
 
-### 3. **ProtecciÛn NumÈrica**
+### 3. **Protecci√≥n Num√©rica**
 
 **En calcular_jacobiano_kernel()**:
 ```python
@@ -76,7 +77,7 @@ if |diff| < EPSILON:
     val = MAX_VAL
 ```
 
-**En normalizaciÛn**:
+**En normalizaci√≥n**:
 ```python
 if std < 1e-10:
     std = 1.0  # Fallback
@@ -91,13 +92,13 @@ ratio = numerador / (denominador + 1e-10)  # Evita div/0
 
 Tres niveles de defensa:
 
-**Nivel 1**: ValidaciÛn de entrada
+**Nivel 1**: Validaci√≥n de entrada
 ```python
 if N < 2:
     raise ValueError("N debe ser >= 2")
 ```
 
-**Nivel 2**: Try-catch en operaciones crÌticas
+**Nivel 2**: Try-catch en operaciones cr√≠ticas
 ```python
 try:
     evals, evecs = la.eigh(J)
@@ -120,17 +121,17 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Diferentes niveles
-logger.error()      # Fallos crÌticos
-logger.warning()    # AnomalÌas recuperables
-logger.info()       # InformaciÛn operacional
+logger.error()      # Fallos cr√≠ticos
+logger.warning()    # Anomal√≠as recuperables
+logger.info()       # Informaci√≥n operacional
 ```
 
 **Ejemplos implementados**:
-- "GUE (N=100): desviaciÛn est·ndar muy pequeÒa (1.23e-11)"
+- "GUE (N=100): desviaci√≥n est√°ndar muy peque√±a (1.23e-11)"
 - "Matriz mal acondicionada (cond=1.45e13)"
-- "Jacobiano contiene valores inv·lidos"
+- "Jacobiano contiene valores inv√°lidos"
 
-### 6. **Type Hints y DocumentaciÛn**
+### 6. **Type Hints y Documentaci√≥n**
 
 **PEP 484 completo**:
 ```python
@@ -139,10 +140,10 @@ def generar_uniforme(N: int, soporte: Tuple[float, float] = None) -> np.ndarray:
 
 **Docstrings Numpy style**:
 ```python
-Par·metros:
+Par√°metros:
 -----------
 N : int
-    N˙mero de puntos
+    N√∫mero de puntos
 
 Retorna:
 --------
@@ -165,9 +166,9 @@ def calcular_jacobiano_kernel(gamma):
 ```
 
 Flags:
-- `nopython=True`: M·xima velocidad
-- `parallel=True`: ParalelizaciÛn autom·tica
-- `fastmath=True`: Operaciones fp r·pidas
+- `nopython=True`: M√°xima velocidad
+- `parallel=True`: Paralelizaci√≥n autom√°tica
+- `fastmath=True`: Operaciones fp r√°pidas
 
 ---
 
@@ -176,32 +177,32 @@ Flags:
 ### En solucionador_reimann.py
 
 ```
-[UNIVERSO A] An·lisis puntual inicial (N=50)
+[UNIVERSO A] An√°lisis puntual inicial (N=50)
 ??? Jacobiano del sistema
-??? DecomposiciÛn de tÈrminos
-??? InterpretaciÛn local
+??? Decomposici√≥n de t√©rminos
+??? Interpretaci√≥n local
 
-[UNIVERSO B] EvoluciÛn din·mica (N=50, t ? [-0.05, 0])
-??? IntegraciÛn ODE
-??? Monitoreo de espaciado mÌnimo
-??? DetecciÛn de coalescencia
+[UNIVERSO B] Evoluci√≥n din√°mica (N=50, t ? [-0.05, 0])
+??? Integraci√≥n ODE
+??? Monitoreo de espaciado m√≠nimo
+??? Detecci√≥n de coalescencia
 
-[EXPERIMENTO 1] An·lisis detallado (N=1000)
+[EXPERIMENTO 1] An√°lisis detallado (N=1000)
 ??? Espectro completo del Jacobiano
-??? EstadÌsticas de modo blando
-??? ComparaciÛn singular vs regular
+??? Estad√≠sticas de modo blando
+??? Comparaci√≥n singular vs regular
 
 [EXPERIMENTO 2] Escalamiento vs N (N ? [100, 200, 500, 1000, 2000, 3000])
-??? Espaciado mÌnimo
-??? Velocidad instant·nea
+??? Espaciado m√≠nimo
+??? Velocidad instant√°nea
 ??? Ratios y tendencias
-??? 6 gr·ficos comparativos
+??? 6 gr√°ficos comparativos
 
 [EXPERIMENTO 3] Protocolo de Rigidez Espectral (N ? [100, 200, 500, 1000, 2000])
 ??? Riemann vs Uniforme vs GUE vs Poisson
-??? Escalamiento crÌtico: ?? ~ N^(-?)
-??? An·lisis de modo blando (sinusoidal, localizaciÛn, energÌa)
-??? 9 gr·ficos de diagnÛstico
+??? Escalamiento cr√≠tico: ?? ~ N^(-?)
+??? An√°lisis de modo blando (sinusoidal, localizaci√≥n, energ√≠a)
+??? 9 gr√°ficos de diagn√≥stico
 ```
 
 ---
@@ -210,65 +211,65 @@ Flags:
 
 ### Gap Espectral (?? = |??|)
 
-**Significado**: Velocidad fundamental de relajaciÛn hacia equilibrio
+**Significado**: Velocidad fundamental de relajaci√≥n hacia equilibrio
 
 **Escalamiento universal**:
 ```
 ?? ~ N^(-?)
 
-? = 2:   Hidrodin·mica universal
+? = 2:   Hidrodin√°mica universal
 ? < 2:   Mayor rigidez (especial)
-? > 2:   Menor rigidez (caÛtico)
+? > 2:   Menor rigidez (ca√≥tico)
 ```
 
 ### Modo Blando (v?)
 
-**Car·cter**:
-- **Sinusoidal**: v? ~ sin(?i/N) ? Elasticidad continua autÈntica
+**Car√°cter**:
+- **Sinusoidal**: v? ~ sin(?i/N) ? Elasticidad continua aut√©ntica
 - **Global**: Distribuido uniformemente ? Onda colectiva del bulto
-- **Localizado en bordes**: EnergÌa concentrada en extremos ? Artefacto
+- **Localizado en bordes**: Energ√≠a concentrada en extremos ? Artefacto
 
-### EnergÌa Log-Gas (E)
+### Energ√≠a Log-Gas (E)
 
 ```
 E = -?_{i<j} log|?_i - ?_j|
 
-E ? r·pido: Ceros compresion·ndose
-E ? lento:  Equilibrio estadÌstico
+E ? r√°pido: Ceros compresion√°ndose
+E ? lento:  Equilibrio estad√≠stico
 ```
 
 ---
 
-## ??? GarantÌas de Seguridad
+## ??? Garant√≠as de Seguridad
 
-| Aspecto | GarantÌa |
+| Aspecto | Garant√≠a |
 |---------|----------|
-| **ValidaciÛn** | ? Exhaustiva en interfaces p˙blicas |
-| **Errores NumÈricos** | ? ProtecciÛn con ?, max_val, guards |
+| **Validaci√≥n** | ? Exhaustiva en interfaces p√∫blicas |
+| **Errores Num√©ricos** | ? Protecci√≥n con ?, max_val, guards |
 | **Excepciones** | ? Capturadas y manejadas sin crash |
 | **Logging** | ? Trazabilidad completa |
 | **Type Safety** | ? PEP 484 con type hints |
-| **DocumentaciÛn** | ? Docstrings Numpy style |
+| **Documentaci√≥n** | ? Docstrings Numpy style |
 | **Reproducibilidad** | ? Seeds controlables |
-| **Performance** | ? JIT + Numba + paralelizaciÛn |
+| **Performance** | ? JIT + Numba + paralelizaci√≥n |
 
 ---
 
 ## ?? Limites Conocidos
 
 ```
-MÌnimo N:        10  (an·lisis modo blando requiere >10)
-M·ximo N seguro: 5000 (evitar problemas memoria)
-cond(J) lÌmite:  1e12 (malo si > este valor)
-gap mÌnimo:      1e-15 (saturaciÛn numÈrica)
-epsilon:         1e-10 (mÌnima distancia entre ceros)
+M√≠nimo N:        10  (an√°lisis modo blando requiere >10)
+M√°ximo N seguro: 5000 (evitar problemas memoria)
+cond(J) l√≠mite:  1e12 (malo si > este valor)
+gap m√≠nimo:      1e-15 (saturaci√≥n num√©rica)
+epsilon:         1e-10 (m√≠nima distancia entre ceros)
 ```
 
 ---
 
-## ?? CÛmo Ejecutar
+## ?? C√≥mo Ejecutar
 
-### OpciÛn A: An·lisis Completo
+### Opci√≥n A: An√°lisis Completo
 
 ```bash
 cd "solucionador reimann"
@@ -277,19 +278,19 @@ python solucionador_reimann.py
 
 **Genera**:
 - `analisis_espaciado_vs_N.png` (6 paneles)
-- `evolucion_dmin.png` (evoluciÛn temporal)
+- `evolucion_dmin.png` (evoluci√≥n temporal)
 - `rigidez_espectral_protocolo.png` (9 paneles)
 - `cache_ceros_riemann.pkl` (persistente)
 
-### OpciÛn B: Test de ValidaciÛn
+### Opci√≥n B: Test de Validaci√≥n
 
 ```bash
 python TEST_SUITE.py
 ```
 
-Imprime checklist de validaciÛn sin ejecutar computaciones pesadas.
+Imprime checklist de validaci√≥n sin ejecutar computaciones pesadas.
 
-### OpciÛn C: Uso Program·tico
+### Opci√≥n C: Uso Program√°tico
 
 ```python
 from solucionador_reimann import CACHE
@@ -309,14 +310,14 @@ modos = datos['modos_blandos']
 
 ---
 
-## ?? DocumentaciÛn
+## ?? Documentaci√≥n
 
 | Archivo | Contenido |
 |---------|-----------|
-| `README_PROTOCOLO_RIGIDEZ.md` | GuÌa tÈcnica del protocolo |
-| `AUDITORIA_SEGURIDAD.md` | AuditorÌa de cÛdigo y seguridad |
-| `TEST_SUITE.py` | Suite de pruebas de validaciÛn |
-| Este documento | Overview y guÌa de uso |
+| `README_PROTOCOLO_RIGIDEZ.md` | Gu√≠a t√©cnica del protocolo |
+| `AUDITORIA_SEGURIDAD.md` | Auditor√≠a de c√≥digo y seguridad |
+| `TEST_SUITE.py` | Suite de pruebas de validaci√≥n |
+| Este documento | Overview y gu√≠a de uso |
 
 ---
 
@@ -333,18 +334,18 @@ mpmath        >= 1.1.0
 
 ---
 
-## ?? VerificaciÛn Pre-Uso
+## ?? Verificaci√≥n Pre-Uso
 
 Antes de experimentos con datos reales:
 
 ```bash
-# 1. Verificar instalaciÛn
+# 1. Verificar instalaci√≥n
 python -c "import numpy, scipy, numba, matplotlib, mpmath; print('OK')"
 
-# 2. Ejecutar validaciÛn r·pida
+# 2. Ejecutar validaci√≥n r√°pida
 python TEST_SUITE.py
 
-# 3. Probar protocolo con N pequeÒo (N=100)
+# 3. Probar protocolo con N peque√±o (N=100)
 python -c "
 from solucionador_reimann import CACHE
 from rigidez_espectral import ejecutar_analisis_completo
@@ -360,20 +361,20 @@ print('? Protocolo funciona correctamente')
 ### ? NO HACE
 
 ```
-? NO prueba la HipÛtesis de Riemann
-? NO sustituye an·lisis din·mico completo
+? NO prueba la Hip√≥tesis de Riemann
+? NO sustituye an√°lisis din√°mico completo
 ? NO controla el error de truncamiento rigurosamente
-? NO extiende a sistema infinito autom·ticamente
+? NO extiende a sistema infinito autom√°ticamente
 ```
 
-### ? SÕ HACE
+### ? S√ç HACE
 
 ```
 ? Caracteriza estructura local de log-gas truncado
 ? Compara con benchmarks (Uniforme, GUE, Poisson)
-? Mide rigidez espectral en funciÛn de N
-? Detecta anomalÌas en condicionamiento numÈrico
-? Proporciona observables para an·lisis estadÌstico
+? Mide rigidez espectral en funci√≥n de N
+? Detecta anomal√≠as en condicionamiento num√©rico
+? Proporciona observables para an√°lisis estad√≠stico
 ```
 
 ---
@@ -383,9 +384,9 @@ print('? Protocolo funciona correctamente')
 Si algo falla:
 
 1. **Revisar logs**: `AUDITORIA_SEGURIDAD.md` lista todos los puntos protegidos
-2. **Ejecutar TEST_SUITE.py**: Diagnostica validaciÛn
+2. **Ejecutar TEST_SUITE.py**: Diagnostica validaci√≥n
 3. **Aumentar verbose**: `ejecutar_analisis_completo(..., verbose=True)`
-4. **Verificar N**: Si N < 10, algunos an·lisis pueden fallar gracefully
+4. **Verificar N**: Si N < 10, algunos an√°lisis pueden fallar gracefully
 5. **Monitorear memoria**: Para N > 3000, use submuestreo
 
 ---
@@ -394,38 +395,38 @@ Si algo falla:
 
 Para entender el protocolo en profundidad:
 
-1. **README_PROTOCOLO_RIGIDEZ.md**: TeorÌa de Jacobiano y modo blando
-2. **CÛdigo comentado**: Especialmente `calcular_jacobiano_kernel()` y `analizar_modo_blando()`
+1. **README_PROTOCOLO_RIGIDEZ.md**: Teor√≠a de Jacobiano y modo blando
+2. **C√≥digo comentado**: Especialmente `calcular_jacobiano_kernel()` y `analizar_modo_blando()`
 3. **Paper de referencia**: Dyson's circular law, GUE spectral statistics
-4. **Experimentos**: Ejecutar con N=[100, 200, 500, 1000] y comparar gr·ficos
+4. **Experimentos**: Ejecutar con N=[100, 200, 500, 1000] y comparar gr√°ficos
 
 ---
 
 ## ? Checklist Final
 
-Antes de considerar "listo para producciÛn":
+Antes de considerar "listo para producci√≥n":
 
 - [ ] TEST_SUITE.py ejecuta sin errores
-- [ ] An·lisis pequeÒo (N=100) completa en < 2 minutos
-- [ ] Gr·ficos se guardan correctamente en PNG
-- [ ] Logs muestran informaciÛn interpretable
+- [ ] An√°lisis peque√±o (N=100) completa en < 2 minutos
+- [ ] Gr√°ficos se guardan correctamente en PNG
+- [ ] Logs muestran informaci√≥n interpretable
 - [ ] Cache persiste entre ejecuciones
 - [ ] Seeds reproducen exactamente los mismos resultados
-- [ ] No hay warnings de Numba en compilaciÛn
+- [ ] No hay warnings de Numba en compilaci√≥n
 - [ ] Condicionamiento de matrices reportado adecuadamente
 
 ---
 
-## ?? ConclusiÛn
+## ?? Conclusi√≥n
 
-Se ha implementado un **Protocolo de Rigidez Espectral** robusto, bien documentado y seguro para analizar la estructura din·mica de los ceros de Riemann mediante el Jacobiano del log-gas truncado.
+Se ha implementado un **Protocolo de Rigidez Espectral** robusto, bien documentado y seguro para analizar la estructura din√°mica de los ceros de Riemann mediante el Jacobiano del log-gas truncado.
 
-El cÛdigo cumple con est·ndares profesionales de robustez, mantenibilidad y seguridad, incluyendo validaciÛn exhaustiva, manejo de excepciones, logging, type hints y optimizaciones de performance.
+El c√≥digo cumple con est√°ndares profesionales de robustez, mantenibilidad y seguridad, incluyendo validaci√≥n exhaustiva, manejo de excepciones, logging, type hints y optimizaciones de performance.
 
 **Status: ? APROBADO PARA USO EXPERIMENTAL**
 
 ---
 
-*⁄ltimo actualizado: 2024*
-*AuditorÌa: Completa*
-*VersiÛn: 1.0*
+*√öltimo actualizado: 2024*
+*Auditor√≠a: Completa*
+*Versi√≥n: 1.0*
