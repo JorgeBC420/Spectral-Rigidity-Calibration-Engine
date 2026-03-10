@@ -1,5 +1,5 @@
 # ============================================================
-# .gitignore — Riemann Spectral Analysis Framework
+# .gitignore — Spectral Rigidity Calibration Engine
 # ============================================================
 
 # ── Visual Studio / VS Code ─────────────────────────────────
@@ -10,6 +10,10 @@
 *.userosscache
 *.sln.docstates
 *.pyproj.user
+
+# ── Archivos de proyecto Visual Studio (no son código Python)
+*.sln
+*.pyproj
 
 # ── Python ──────────────────────────────────────────────────
 __pycache__/
@@ -81,3 +85,11 @@ desktop.ini
 *.bak
 *.swp
 *~
+
+# ── Scripts de diagnóstico temporal ─────────────────────────
+# Estos archivos fueron útiles durante desarrollo pero no
+# forman parte del proyecto publicable.
+srce/diagnostico_*.py
+srce/rigidez_espectral.py
+srce/run_experiment.py
+srce/main.py
