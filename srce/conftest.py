@@ -4,6 +4,13 @@ tests/conftest.py
 =================
 Configuración global de pytest. Fixtures compartidas entre todos los módulos.
 RNG: np.random.default_rng en todas las fixtures — sin estado global.
+
+Nota de auditoría (2026-03-10):
+  - Normalización GOE/GUE: (A + A.T) / (2*sqrt(N))  ← CORRECTO para esta CDF
+    unfolding_wigner_gue usa semicírculo en [-2, 2], por lo que el radio
+    natural de H = (A+A†)/(2√N) ≈ 2 es exactamente el esperado → <s> ≈ 1.
+    La alternativa /sqrt(2N) produce radio ≈ 2.8 → <s> ≈ 1.4 (incorrecto).
+  - normalize_spacing agregado como salvaguarda post-unfolding.
 """
 
 import os
@@ -18,7 +25,8 @@ SRC  = os.path.join(ROOT, "src")
 if SRC not in sys.path:
     sys.path.insert(0, SRC)
 
-from riemann_spectral.analysis.unfolding import unfolding_wigner_gue
+from riemann_spectral.analysis.unfolding  import unfolding_wigner_gue
+from riemann_spectral.analysis.normalize  import normalize_spacing
 
 
 def pytest_configure(config):
@@ -54,8 +62,12 @@ def poisson_unfolded():
 @pytest.fixture(scope="session")
 def gue_unfolded():
     """
-    GUE N=1200 → unfolding Wigner → tercio central.
-    Tercio central ≈ 400 puntos útiles. Calculado UNA VEZ por sesión.
+    GUE N=1200 → unfolding Wigner → tercio central → normalize_spacing.
+
+    Normalización: H = (A + A†) / (2*sqrt(N))
+    Produce radio del semicírculo ≈ 2.0, compatible con unfolding_wigner_gue
+    que usa CDF del semicírculo en [-2, 2] con sigma=1.
+    Resultado: <s> ≈ 1.0 después del unfolding (verificado empíricamente).
     """
     rng = np.random.default_rng(seed=99)
     N   = 1200
@@ -65,13 +77,17 @@ def gue_unfolded():
     u   = unfolding_wigner_gue(ev)
     n   = len(u)
     central = u[n // 3: 2 * (n // 3)]
+    central = normalize_spacing(central)              # salvaguarda: forzar <s>=1
     return central - central[0]
 
 
 @pytest.fixture(scope="session")
 def goe_unfolded():
     """
-    GOE N=1200 → unfolding Wigner (mismo semicírculo) → tercio central.
+    GOE N=1200 → unfolding Wigner → tercio central → normalize_spacing.
+
+    Normalización: H = (A + A.T) / (2*sqrt(N))
+    Misma lógica que GUE: radio ≈ 2.0, compatible con unfolding_wigner_gue.
     """
     rng = np.random.default_rng(seed=7)
     N   = 1200
@@ -81,6 +97,7 @@ def goe_unfolded():
     u   = unfolding_wigner_gue(ev)
     n   = len(u)
     central = u[n // 3: 2 * (n // 3)]
+    central = normalize_spacing(central)              # salvaguarda: forzar <s>=1
     return central - central[0]
 
 

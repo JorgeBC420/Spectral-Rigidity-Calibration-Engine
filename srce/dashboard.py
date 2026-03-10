@@ -59,31 +59,39 @@ except ImportError as e:
     MOTOR_DISPONIBLE = False
 
 try:
-    # Imports corregidos con nombres reales del repositorio
     from src.riemann_spectral.analysis.rigidity import delta3_dyson_mehta
+    from src.riemann_spectral.analysis.number_variance import (
+        sigma2_number_variance_fast,
+        sigma2_theoretical,
+    )
+    from src.riemann_spectral.analysis.pair_correlation import (
+        pair_correlation_fast,
+        r2_teorica_gue,
+        r2_teorica_poisson,
+        chi2_r2_vs_gue,
+    )
+    from src.riemann_spectral.analysis.spectral_form_factor import (
+        spectral_form_factor,
+        spectral_form_factor_teorico,
+        r_statistic,
+        r_distribucion_teorica,
+        R_MEAN_GUE, R_MEAN_GOE, R_MEAN_POISSON,
+    )
     from src.riemann_spectral.data.generators import (
         generar_gue_normalizado,
-        generar_poisson
+        generar_poisson,
+        generar_goe_normalizado,
     )
     from src.riemann_spectral.analysis.unfolding import (
         unfolding_wigner_gue,
-        unfolding_tercio_central
+        unfolding_tercio_central,
     )
+    from src.riemann_spectral.analysis.normalize import normalize_spacing
     RIGIDEZ_DISPONIBLE = True
-    
-    # Validación de que las funciones existen
-    assert callable(delta3_dyson_mehta), "delta3_dyson_mehta no es callable"
-    assert callable(generar_gue_normalizado), "generar_gue_normalizado no es callable"
-    assert callable(generar_poisson), "generar_poisson no es callable"
-    assert callable(unfolding_wigner_gue), "unfolding_wigner_gue no es callable"
-    
+
 except ImportError as e:
-    st.warning(f"⚠️ Módulo de rigidez no disponible: {e}")
-    st.info("💡 Las funciones de análisis Δ₃ estarán deshabilitadas")
-    RIGIDEZ_DISPONIBLE = False
-except AssertionError as e:
-    st.error(f"❌ Error de validación: {e}")
-    st.info("💡 Los nombres de las funciones no coinciden con el código")
+    st.warning(f"⚠️ Módulo de análisis no disponible: {e}")
+    st.info("💡 Verifica src/riemann_spectral/")
     RIGIDEZ_DISPONIBLE = False
 
 # ============================================================================
@@ -92,12 +100,12 @@ except AssertionError as e:
 
 if 'resultados_espaciado' not in st.session_state:
     st.session_state.resultados_espaciado = None
-
 if 'resultados_rigidez' not in st.session_state:
     st.session_state.resultados_rigidez = None
-
 if 'gamma_actual' not in st.session_state:
     st.session_state.gamma_actual = None
+if 'resultados_rmt' not in st.session_state:
+    st.session_state.resultados_rmt = None
 
 # ============================================================================
 # ESTILOS CSS PERSONALIZADOS
@@ -745,59 +753,589 @@ with tab2:
 # ============================================================================
 
 with tab3:
-    st.header("🔬 Validación Random Matrix Theory")
-    
+    st.header("🔬 Validación Random Matrix Theory — Toolkit Completo")
     st.markdown("""
-    Comparación rigurosa entre:
-    - **Proceso de Poisson:** Desorden total (niveles independientes)
-    - **GUE (Gaussian Unitary Ensemble):** Correlaciones de sistemas cuánticos
-    - **Ceros de Riemann:** Hipótesis de Montgomery-Odlyzko
+    Comparación de **5 estadísticas espectrales** entre Poisson, GOE, GUE y ceros de Riemann.
+    Cada estadística captura un aspecto distinto de la estructura del espectro.
     """)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("📊 Distribución de Espaciados")
-        st.info("""
-        **Predicciones teóricas:**
-        - Poisson: P(s) = e^(-s)
-        - GUE: P(s) = (π/2)s·e^(-πs²/4)
-        """)
-        
-        if st.button("Generar Comparación"):
-            fig, ax = plt.subplots(figsize=(10, 6))
-            
-            # Placeholder para distribuciones reales
-            s = np.linspace(0, 3, 100)
-            
-            # Poisson
-            poisson = np.exp(-s)
-            ax.plot(s, poisson, 'r-', linewidth=2, label='Poisson')
-            
-            # GUE (Wigner surmise)
-            gue = (np.pi/2) * s * np.exp(-np.pi * s**2 / 4)
-            ax.plot(s, gue, 'b-', linewidth=2, label='GUE')
-            
-            ax.set_xlabel('s (espaciado normalizado)', fontsize=12)
-            ax.set_ylabel('P(s)', fontsize=12)
-            ax.set_title('Distribución de Espaciados Nearest-Neighbor')
-            ax.legend()
-            ax.grid(alpha=0.3)
-            
-            st.pyplot(fig)
-    
-    with col2:
-        st.subheader("📈 Number Variance")
-        st.info("""
-        **Predicciones:**
-        - Poisson: Σ²(L) = L
-        - GUE: Σ²(L) ~ (2/π²) log L
-        """)
-        
-        st.markdown("*Implementación completa próximamente*")
 
-# ============================================================================
-# TAB 4: DOCUMENTACIÓN MATEMÁTICA
+    if not RIGIDEZ_DISPONIBLE:
+        st.error("❌ Módulos de análisis no disponibles. Verifica src/riemann_spectral/")
+        st.stop()
+
+    # ── Controles de generación ──────────────────────────────────────────────
+    with st.expander("⚙️ Configuración del Análisis RMT", expanded=True):
+        col_cfg1, col_cfg2, col_cfg3 = st.columns(3)
+        with col_cfg1:
+            N_rmt = st.slider("N (tamaño del espectro)", 500, 3000, 1200, 100,
+                              key="n_rmt", help="Más N = más precisión, más tiempo")
+        with col_cfg2:
+            incluir_riemann = st.checkbox("Incluir ceros de Riemann", True, key="rmt_riemann")
+            incluir_goe     = st.checkbox("Incluir GOE", True, key="rmt_goe")
+        with col_cfg3:
+            seed_rmt = st.number_input("Seed RNG", 0, 9999, 42, key="seed_rmt")
+
+    if st.button("🚀 Calcular todas las estadísticas RMT", type="primary", key="btn_rmt"):
+        if not MOTOR_DISPONIBLE and incluir_riemann:
+            st.warning("⚠️ Motor no disponible — se omitirán los ceros de Riemann.")
+            incluir_riemann = False
+
+        with st.spinner("Generando ensembles y calculando estadísticas..."):
+            rng_rmt = np.random.default_rng(seed=seed_rmt)
+            resultados_rmt = {}
+
+            # ── Generar espectros ────────────────────────────────────────────
+            try:
+                # Poisson
+                ev_poisson = generar_poisson(N_rmt, rng=rng_rmt)
+                resultados_rmt["Poisson"] = {"ev": ev_poisson, "color": "#e74c3c",
+                                              "dash": "dash"}
+
+                # GUE
+                ev_gue_raw = generar_gue_normalizado(N_rmt, rng=rng_rmt)
+                ev_gue = unfolding_wigner_gue(ev_gue_raw)
+                n_g = len(ev_gue)
+                ev_gue = normalize_spacing(ev_gue[n_g//3: 2*(n_g//3)])
+                ev_gue = ev_gue - ev_gue[0]
+                resultados_rmt["GUE"] = {"ev": ev_gue, "color": "#3498db", "dash": "dot"}
+
+                # GOE (opcional)
+                if incluir_goe:
+                    ev_goe_raw = generar_goe_normalizado(N_rmt, rng=rng_rmt)
+                    ev_goe = unfolding_wigner_gue(ev_goe_raw)
+                    n_go = len(ev_goe)
+                    ev_goe = normalize_spacing(ev_goe[n_go//3: 2*(n_go//3)])
+                    ev_goe = ev_goe - ev_goe[0]
+                    resultados_rmt["GOE"] = {"ev": ev_goe, "color": "#2ecc71", "dash": "dashdot"}
+
+                # Riemann (opcional)
+                if incluir_riemann and MOTOR_DISPONIBLE:
+                    gamma_r = CACHE.obtener(N_rmt)
+                    from src.riemann_spectral.analysis.unfolding import unfolding_riemann
+                    ev_riem = unfolding_riemann(gamma_r)
+                    nr = len(ev_riem)
+                    ev_riem = ev_riem[nr//3: 2*(nr//3)] - ev_riem[nr//3]
+                    resultados_rmt["Riemann"] = {"ev": ev_riem, "color": "#9b59b6",
+                                                  "dash": "solid"}
+
+                st.session_state.resultados_rmt = resultados_rmt
+                st.success(f"✅ Análisis completado — {len(resultados_rmt)} ensembles")
+
+            except Exception as e:
+                st.error(f"❌ Error generando ensembles: {e}")
+                if modo_debug:
+                    st.exception(e)
+
+    # ── Mostrar resultados en sub-tabs ───────────────────────────────────────
+    if st.session_state.resultados_rmt:
+        res = st.session_state.resultados_rmt
+
+        rmt_t1, rmt_t2, rmt_t3, rmt_t4, rmt_t5, rmt_t6 = st.tabs([
+            "P(s) Espaciados",
+            "Σ²(L) Varianza",
+            "R₂(s) Correlación Pares",
+            "K(t) Form Factor",
+            "r-statistic",
+            "📋 Resumen Comparativo",
+        ])
+
+        # ════════════════════════════════════════════════════════════════════
+        # P(s) — Distribución de espaciados nearest-neighbor
+        # ════════════════════════════════════════════════════════════════════
+        with rmt_t1:
+            st.subheader("P(s) — Distribución de Espaciados Vecinos")
+            if mostrar_matematicas:
+                col_eq1, col_eq2 = st.columns(2)
+                with col_eq1:
+                    st.latex(r"P_\text{Poisson}(s) = e^{-s}")
+                with col_eq2:
+                    st.latex(r"P_\text{GUE}(s) = \frac{\pi}{2}\,s\,e^{-\frac{\pi}{4}s^2}")
+
+            fig_ps = go.Figure()
+            s_teo = np.linspace(0, 4, 300)
+
+            # Curvas teóricas
+            fig_ps.add_trace(go.Scatter(
+                x=s_teo, y=np.exp(-s_teo),
+                mode="lines", name="Poisson teórico",
+                line=dict(color="#e74c3c", width=1, dash="dash")))
+            fig_ps.add_trace(go.Scatter(
+                x=s_teo,
+                y=(np.pi/2)*s_teo*np.exp(-np.pi*s_teo**2/4),
+                mode="lines", name="GUE teórico (Wigner)",
+                line=dict(color="#3498db", width=1, dash="dash")))
+            goe_teo = (32/np.pi**2)*s_teo*np.exp(-4*s_teo**2/np.pi)
+            fig_ps.add_trace(go.Scatter(
+                x=s_teo, y=goe_teo,
+                mode="lines", name="GOE teórico",
+                line=dict(color="#2ecc71", width=1, dash="dot")))
+
+            # Histogramas experimentales
+            for label, d in res.items():
+                ev = d["ev"]
+                spacings = np.diff(ev)
+                # Normalizar spacing medio a 1
+                s_mean = np.mean(spacings)
+                if s_mean > 1e-10:
+                    spacings = spacings / s_mean
+                hist, edges = np.histogram(spacings, bins=50, range=(0, 4), density=True)
+                ctrs = 0.5*(edges[1:]+edges[:-1])
+                fig_ps.add_trace(go.Scatter(
+                    x=ctrs, y=hist, mode="lines+markers",
+                    name=f"{label} (N={len(ev)})",
+                    line=dict(color=d["color"], width=2),
+                    marker=dict(size=4)))
+
+            fig_ps.update_layout(
+                title="P(s): Distribución de Espaciados Nearest-Neighbor",
+                xaxis_title="s (espaciado normalizado)",
+                yaxis_title="P(s)",
+                hovermode="x unified", height=500,
+                legend=dict(bgcolor="rgba(255,255,255,0.9)"))
+            st.plotly_chart(fig_ps, use_container_width=True)
+
+            st.info("**Interpretar:** GUE tiene máximo en s≈1 (repulsión) mientras "
+                    "Poisson decae exponencialmente desde s=0 (no hay repulsión).")
+
+        # ════════════════════════════════════════════════════════════════════
+        # Σ²(L) — Number Variance
+        # ════════════════════════════════════════════════════════════════════
+        with rmt_t2:
+            st.subheader("Σ²(L) — Varianza del Número de Niveles")
+            if mostrar_matematicas:
+                col_eq1, col_eq2 = st.columns(2)
+                with col_eq1:
+                    st.latex(r"\Sigma^2(L) = \langle (N(L) - L)^2 \rangle")
+                with col_eq2:
+                    st.latex(r"\Sigma^2_\text{GUE}(L) \approx \frac{1}{\pi^2}\ln L")
+
+            L_sigma = np.array([2.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0])
+            fig_s2 = go.Figure()
+
+            # Curvas teóricas
+            L_teo = np.linspace(1, 35, 200)
+            fig_s2.add_trace(go.Scatter(
+                x=L_teo, y=L_teo,
+                mode="lines", name="Poisson teórico (L)",
+                line=dict(color="#e74c3c", width=1, dash="dash")))
+            fig_s2.add_trace(go.Scatter(
+                x=L_teo, y=(1/np.pi**2)*np.log(L_teo),
+                mode="lines", name="GUE teórico ((1/π²)ln L)",
+                line=dict(color="#3498db", width=1, dash="dash")))
+            fig_s2.add_trace(go.Scatter(
+                x=L_teo, y=(2/np.pi**2)*np.log(L_teo),
+                mode="lines", name="GOE teórico ((2/π²)ln L)",
+                line=dict(color="#2ecc71", width=1, dash="dot")))
+
+            # Experimental
+            for label, d in res.items():
+                ev = d["ev"]
+                try:
+                    sigma2_vals = sigma2_number_variance_fast(ev, L_sigma)
+                    valid = np.isfinite(sigma2_vals)
+                    fig_s2.add_trace(go.Scatter(
+                        x=L_sigma[valid], y=sigma2_vals[valid],
+                        mode="lines+markers", name=f"{label}",
+                        line=dict(color=d["color"], width=2),
+                        marker=dict(size=7)))
+                except Exception as e_s2:
+                    st.warning(f"Σ²: error en {label}: {e_s2}")
+
+            fig_s2.update_layout(
+                title="Σ²(L): Number Variance",
+                xaxis_title="L (longitud de ventana)",
+                yaxis_title="Σ²(L)",
+                hovermode="x unified", height=500)
+            st.plotly_chart(fig_s2, use_container_width=True)
+
+            st.info("**Interpretar:** GUE crece logarítmicamente (correlaciones fuertes). "
+                    "Poisson crece linealmente (sin correlaciones).")
+
+        # ════════════════════════════════════════════════════════════════════
+        # R₂(s) — Pair Correlation
+        # ════════════════════════════════════════════════════════════════════
+        with rmt_t3:
+            st.subheader("R₂(s) — Función de Correlación de Pares")
+            if mostrar_matematicas:
+                st.latex(r"R_2(s) = 1 - \left(\frac{\sin(\pi s)}{\pi s}\right)^2 \quad \text{(GUE)}")
+                st.markdown("**Montgomery 1973 · Dyson 1962** — La conjetura que conecta "
+                            "los ceros de Riemann con RMT fue observada en esta estadística.")
+
+            s_grid = np.linspace(0.01, 5.0, 300)
+            fig_r2 = go.Figure()
+
+            # Curvas teóricas
+            fig_r2.add_trace(go.Scatter(
+                x=s_grid, y=r2_teorica_poisson(s_grid),
+                mode="lines", name="Poisson teórico (= 1)",
+                line=dict(color="#e74c3c", width=1, dash="dash")))
+            fig_r2.add_trace(go.Scatter(
+                x=s_grid, y=r2_teorica_gue(s_grid),
+                mode="lines", name="GUE teórico (Montgomery–Dyson)",
+                line=dict(color="#3498db", width=1, dash="dash")))
+
+            # Línea de referencia en s=1 (primer nodo de GUE)
+            fig_r2.add_vline(x=1.0, line_dash="dot", line_color="gray",
+                             annotation_text="nodo s=1", annotation_position="top")
+
+            # Experimental
+            for label, d in res.items():
+                ev = d["ev"]
+                try:
+                    s_obs, r2_obs = pair_correlation_fast(ev, s_max=5.0, bins=80)
+                    valid = np.isfinite(r2_obs)
+                    fig_r2.add_trace(go.Scatter(
+                        x=s_obs[valid], y=r2_obs[valid],
+                        mode="lines", name=f"{label}",
+                        line=dict(color=d["color"], width=2, dash=d["dash"])))
+                except Exception as e_r2:
+                    st.warning(f"R₂: error en {label}: {e_r2}")
+
+            fig_r2.update_layout(
+                title="R₂(s): Función de Correlación de Pares",
+                xaxis_title="s (distancia espectral)",
+                yaxis_title="R₂(s)",
+                hovermode="x unified", height=500,
+                yaxis=dict(range=[-0.1, 1.5]))
+            st.plotly_chart(fig_r2, use_container_width=True)
+
+            # χ² vs GUE para Riemann (si disponible)
+            if "Riemann" in res:
+                try:
+                    s_obs, r2_obs = pair_correlation_fast(res["Riemann"]["ev"],
+                                                          s_max=5.0, bins=80)
+                    chi2_res = chi2_r2_vs_gue(s_obs, r2_obs)
+                    if np.isfinite(chi2_res["chi2_reducido"]):
+                        chi2_val = chi2_res["chi2_reducido"]
+                        label_chi2 = "✅ Consistente" if chi2_val < 3 else "⚠️ Desviación"
+                        st.metric("χ²/dof Riemann vs GUE",
+                                  f"{chi2_val:.2f}", label_chi2)
+                except Exception:
+                    pass
+
+            st.info("**Interpretar:** El dip en s→0 y el nodo en s=1 son la huella "
+                    "de la repulsión de niveles en GUE. Poisson no tiene estructura.")
+
+        # ════════════════════════════════════════════════════════════════════
+        # K(t) — Spectral Form Factor
+        # ════════════════════════════════════════════════════════════════════
+        with rmt_t4:
+            st.subheader("K(t) — Factor de Forma Espectral")
+            if mostrar_matematicas:
+                st.latex(r"K(t) = \frac{1}{N}\left|\sum_n e^{2\pi i\,t\,\gamma_n}\right|^2")
+                col_eq1, col_eq2 = st.columns(2)
+                with col_eq1:
+                    st.latex(r"K_\text{GUE}(t) = \begin{cases}|t| & |t|\le 1 \\ 1 & |t|>1\end{cases}")
+                with col_eq2:
+                    st.latex(r"K_\text{Poisson}(t) = 1")
+
+            smooth_kfac = st.slider("Suavizado gaussiano (σ)", 0.0, 5.0, 2.0, 0.5,
+                                    key="smooth_kfac")
+            t_max_kfac  = st.slider("t máximo", 1.0, 5.0, 3.0, 0.5, key="t_max_kfac")
+
+            fig_kf = go.Figure()
+            t_teo = np.linspace(0, t_max_kfac, 300)
+
+            # Teóricas
+            fig_kf.add_trace(go.Scatter(
+                x=t_teo, y=spectral_form_factor_teorico(t_teo, "GUE"),
+                mode="lines", name="GUE teórico",
+                line=dict(color="#3498db", width=1, dash="dash")))
+            fig_kf.add_trace(go.Scatter(
+                x=t_teo, y=spectral_form_factor_teorico(t_teo, "GOE"),
+                mode="lines", name="GOE teórico",
+                line=dict(color="#2ecc71", width=1, dash="dot")))
+            fig_kf.add_trace(go.Scatter(
+                x=t_teo, y=spectral_form_factor_teorico(t_teo, "Poisson"),
+                mode="lines", name="Poisson teórico (=1)",
+                line=dict(color="#e74c3c", width=1, dash="dash")))
+
+            # Experimental
+            for label, d in res.items():
+                ev = d["ev"]
+                try:
+                    t_obs, K_obs = spectral_form_factor(
+                        ev, t_max=t_max_kfac, n_t=200,
+                        smooth_sigma=smooth_kfac if smooth_kfac > 0 else None)
+                    fig_kf.add_trace(go.Scatter(
+                        x=t_obs, y=K_obs, mode="lines", name=f"{label}",
+                        line=dict(color=d["color"], width=2, dash=d["dash"])))
+                except Exception as e_kf:
+                    st.warning(f"K(t): error en {label}: {e_kf}")
+
+            fig_kf.update_layout(
+                title="K(t): Factor de Forma Espectral",
+                xaxis_title="t (tiempo de Heisenberg)",
+                yaxis_title="K(t)",
+                hovermode="x unified", height=500,
+                yaxis=dict(range=[0, 1.5]))
+            st.plotly_chart(fig_kf, use_container_width=True)
+
+            st.info("**Interpretar:** El 'dip' de GUE para t<1 revela correlaciones "
+                    "de largo alcance. Poisson es plano (K=1). Usar suavizado para reducir ruido.")
+
+        # ════════════════════════════════════════════════════════════════════
+        # r-statistic
+        # ════════════════════════════════════════════════════════════════════
+        with rmt_t5:
+            st.subheader("r-statistic — Ratio de Espaciados Consecutivos")
+            if mostrar_matematicas:
+                st.latex(r"r_n = \frac{\min(s_n,\,s_{n+1})}{\max(s_n,\,s_{n+1})}, "
+                         r"\quad s_n = \gamma_{n+1}-\gamma_n")
+                st.markdown("**Ventaja:** No requiere unfolding — directamente aplicable "
+                            "a los ceros de Riemann sin preprocesamiento.")
+
+            # Tabla de valores teóricos
+            col_teo, col_res = st.columns([1, 2])
+
+            with col_teo:
+                st.markdown("**Valores teóricos ⟨r⟩:**")
+                df_teo = pd.DataFrame({
+                    "Ensemble": ["Poisson", "GOE", "GUE"],
+                    "⟨r⟩ teórico": [f"{R_MEAN_POISSON:.4f}",
+                                     f"{R_MEAN_GOE:.4f}",
+                                     f"{R_MEAN_GUE:.4f}"],
+                })
+                st.dataframe(df_teo, hide_index=True, use_container_width=True)
+
+            with col_res:
+                st.markdown("**Resultados experimentales:**")
+                filas = []
+                for label, d in res.items():
+                    try:
+                        r_res = r_statistic(d["ev"])
+                        dist_min = min(r_res["distancia_gue"],
+                                       r_res["distancia_goe"],
+                                       r_res["distancia_poisson"])
+                        filas.append({
+                            "Ensemble": label,
+                            "⟨r⟩ obs":     f"{r_res['r_mean']:.4f}",
+                            "σ(r)":         f"{r_res['r_std']:.4f}",
+                            "Clasificación":r_res["clasificacion"],
+                        })
+                    except Exception as e_r:
+                        filas.append({"Ensemble": label, "⟨r⟩ obs": "Error",
+                                      "σ(r)": "—", "Clasificación": str(e_r)[:30]})
+                if filas:
+                    st.dataframe(pd.DataFrame(filas), hide_index=True,
+                                 use_container_width=True)
+
+            # Distribuciones P(r) — teóricas + histogramas
+            st.divider()
+            r_grid_teo = np.linspace(0, 1, 300)
+            fig_rstat = go.Figure()
+
+            for ens_label, ens_color in [("GUE","#3498db"),("GOE","#2ecc71"),("Poisson","#e74c3c")]:
+                fig_rstat.add_trace(go.Scatter(
+                    x=r_grid_teo,
+                    y=r_distribucion_teorica(r_grid_teo, ens_label),
+                    mode="lines", name=f"{ens_label} teórico",
+                    line=dict(color=ens_color, width=1, dash="dash")))
+
+            for label, d in res.items():
+                ev = d["ev"]
+                try:
+                    r_res = r_statistic(ev, return_distribution=True)
+                    r_vals = r_res.get("r_vals", np.array([]))
+                    if len(r_vals) > 10:
+                        hist_r, edges_r = np.histogram(r_vals, bins=40,
+                                                        range=(0,1), density=True)
+                        ctrs_r = 0.5*(edges_r[1:]+edges_r[:-1])
+                        fig_rstat.add_trace(go.Bar(
+                            x=ctrs_r, y=hist_r,
+                            name=f"{label} (N={len(r_vals)})",
+                            marker_color=d["color"], opacity=0.5,
+                            width=0.025))
+                except Exception as e_rstat:
+                    st.warning(f"r-stat histograma: error en {label}: {e_rstat}")
+
+            fig_rstat.update_layout(
+                title="P(r): Distribución del r-statistic",
+                xaxis_title="r", yaxis_title="P(r)",
+                hovermode="x unified", height=480,
+                barmode="overlay")
+            st.plotly_chart(fig_rstat, use_container_width=True)
+
+            st.info("**Interpretar:** El pico de GUE en r≈0.7 refleja la repulsión "
+                    "entre niveles. Poisson tiene más probabilidad cerca de r=0 "
+                    "(niveles muy cercanos son frecuentes sin correlaciones).")
+
+        # ════════════════════════════════════════════════════════════════════
+        # RESUMEN COMPARATIVO — tabla + radar chart
+        # ════════════════════════════════════════════════════════════════════
+        with rmt_t6:
+            st.subheader("📋 Resumen Comparativo — Todas las Estadísticas")
+            st.markdown("""
+            Cada fila es un ensemble. Cada columna es una estadística espectral.
+            Los colores indican qué tan cerca está cada ensemble de la predicción GUE.
+            """)
+
+            # ── Calcular todas las métricas para cada ensemble ────────────
+            L_ref = 10.0        # L de referencia para Δ₃ y Σ²
+            s_max_r2 = 4.0
+            filas_resumen = []
+
+            for label, d in res.items():
+                ev = d["ev"]
+                fila = {"Ensemble": label}
+
+                # ⟨s⟩ spacing medio
+                sp = np.diff(ev)
+                sm = np.mean(sp)
+                fila["⟨s⟩"] = f"{sm:.3f}"
+
+                # r-statistic
+                try:
+                    r_res = r_statistic(ev)
+                    fila["⟨r⟩"] = f"{r_res['r_mean']:.4f}"
+                    fila["Clasif. r"] = r_res["clasificacion"]
+                except Exception:
+                    fila["⟨r⟩"] = "—"; fila["Clasif. r"] = "—"
+
+                # Δ₃(L=10)
+                try:
+                    d3 = delta3_dyson_mehta(ev, L_ref)
+                    d3_gue_teo = np.log(L_ref) / (np.pi ** 2) - 0.0069
+                    d3_poi_teo = L_ref / 15.0
+                    fila[f"Δ₃(L={L_ref:.0f})"] = f"{d3:.4f}"
+                    fila["Δ₃ vs GUE(%)"] = f"{100*abs(d3-d3_gue_teo)/d3_gue_teo:.1f}%"
+                except Exception:
+                    fila[f"Δ₃(L={L_ref:.0f})"] = "—"; fila["Δ₃ vs GUE(%)"] = "—"
+
+                # Σ²(L=10)
+                try:
+                    s2 = sigma2_number_variance_fast(ev, np.array([L_ref]))[0]
+                    fila[f"Σ²(L={L_ref:.0f})"] = f"{s2:.4f}" if np.isfinite(s2) else "—"
+                except Exception:
+                    fila[f"Σ²(L={L_ref:.0f})"] = "—"
+
+                # χ² R₂ vs GUE
+                try:
+                    s_r2, r2_obs = pair_correlation_fast(ev, s_max=s_max_r2, bins=60)
+                    chi2_r = chi2_r2_vs_gue(s_r2, r2_obs, s_min=0.3, s_max_fit=3.5)
+                    chi2_v = chi2_r.get("chi2_reducido", np.nan)
+                    fila["χ²/dof R₂"] = f"{chi2_v:.2f}" if np.isfinite(chi2_v) else "—"
+                except Exception:
+                    fila["χ²/dof R₂"] = "—"
+
+                filas_resumen.append(fila)
+
+            if filas_resumen:
+                df_res = pd.DataFrame(filas_resumen)
+                st.dataframe(
+                    df_res.set_index("Ensemble"),
+                    use_container_width=True,
+                    height=200,
+                )
+
+            # ── Gráfica: comparación visual de Δ₃ y Σ² ────────────────────
+            st.divider()
+            st.markdown("#### Comparativa Δ₃(L) y Σ²(L) — todos los ensembles")
+
+            L_comp = np.array([2.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0])
+            fig_comp = make_subplots(
+                rows=1, cols=2,
+                subplot_titles=("Rigidez Espectral Δ₃(L)", "Number Variance Σ²(L)"),
+            )
+
+            # Teóricas Δ₃
+            L_fine = np.linspace(2, 32, 200)
+            d3_gue_t = np.log(L_fine) / (np.pi**2) - 0.0069
+            d3_poi_t = L_fine / 15.0
+            d3_goe_t = np.log(L_fine) / (2 * np.pi**2) - 0.0012
+            for y_t, name_t, col_t in [
+                (d3_gue_t, "GUE teórico", "#3498db"),
+                (d3_goe_t, "GOE teórico", "#2ecc71"),
+                (d3_poi_t, "Poisson teórico", "#e74c3c"),
+            ]:
+                fig_comp.add_trace(go.Scatter(
+                    x=L_fine, y=y_t, mode="lines", name=name_t,
+                    line=dict(color=col_t, dash="dash", width=1),
+                    showlegend=True, legendgroup="teo",
+                ), row=1, col=1)
+
+            # Experimental Δ₃
+            for label, d in res.items():
+                d3_exp = []
+                for L_v in L_comp:
+                    try:
+                        d3_exp.append(delta3_dyson_mehta(d["ev"], L_v))
+                    except Exception:
+                        d3_exp.append(np.nan)
+                fig_comp.add_trace(go.Scatter(
+                    x=L_comp, y=d3_exp, mode="lines+markers",
+                    name=label, line=dict(color=d["color"], width=2),
+                    marker=dict(size=7), legendgroup=label,
+                ), row=1, col=1)
+
+            # Teóricas Σ²
+            s2_gue_t = np.log(L_fine) / (np.pi**2)
+            s2_goe_t = 2 * np.log(L_fine) / (np.pi**2)
+            for y_t, name_t, col_t in [
+                (s2_gue_t, "GUE teórico", "#3498db"),
+                (s2_goe_t, "GOE teórico", "#2ecc71"),
+                (L_fine,   "Poisson (L)", "#e74c3c"),
+            ]:
+                fig_comp.add_trace(go.Scatter(
+                    x=L_fine, y=y_t, mode="lines", name=name_t,
+                    line=dict(color=col_t, dash="dash", width=1),
+                    showlegend=False, legendgroup="teo2",
+                ), row=1, col=2)
+
+            # Experimental Σ²
+            for label, d in res.items():
+                try:
+                    s2_exp = sigma2_number_variance_fast(d["ev"], L_comp)
+                    valid = np.isfinite(s2_exp)
+                    fig_comp.add_trace(go.Scatter(
+                        x=L_comp[valid], y=s2_exp[valid],
+                        mode="lines+markers", name=label,
+                        line=dict(color=d["color"], width=2),
+                        marker=dict(size=7),
+                        showlegend=False, legendgroup=label,
+                    ), row=1, col=2)
+                except Exception:
+                    pass
+
+            fig_comp.update_xaxes(title_text="L", row=1, col=1)
+            fig_comp.update_xaxes(title_text="L", row=1, col=2)
+            fig_comp.update_yaxes(title_text="Δ₃(L)", row=1, col=1)
+            fig_comp.update_yaxes(title_text="Σ²(L)", row=1, col=2)
+            fig_comp.update_layout(height=500, hovermode="x unified")
+            st.plotly_chart(fig_comp, use_container_width=True)
+
+            # ── Panel de interpretación ───────────────────────────────────
+            st.markdown("#### Guía de Interpretación")
+            col_i1, col_i2, col_i3 = st.columns(3)
+            with col_i1:
+                st.markdown("""
+**🔴 Poisson (desorden)**
+- ⟨r⟩ ≈ 0.386
+- Δ₃ crece como L/15
+- Σ² crece como L
+- R₂(s) = 1 (plana)
+- Sin repulsión de niveles
+                """)
+            with col_i2:
+                st.markdown("""
+**🔵 GUE (caos cuántico)**
+- ⟨r⟩ ≈ 0.600
+- Δ₃ crece como ln(L)/π²
+- Σ² crece como ln(L)/π²
+- R₂(s) tiene dip en s→0
+- Repulsión cuadrática
+                """)
+            with col_i3:
+                st.markdown("""
+**🟣 Riemann (conjetura)**
+- Se espera comportamiento GUE
+- Montgomery 1973 probó R₂(s) GUE
+- Odlyzko 1987 verificó numéricamente
+- Hipótesis de Riemann pendiente
+- Conexión con caos cuántico
+                """)
+
+
 # ============================================================================
 
 with tab4:
@@ -809,125 +1347,197 @@ with tab4:
         "📄 Papers",
         "🎓 Referencias"
     ])
-    
+
     with doc_tab1:
-        st.markdown("""
-        ## Ecuaciones Fundamentales
-        
-        ### 1. Espaciado Mínimo
-        """)
+        st.markdown("## Ecuaciones Fundamentales del Toolkit RMT")
+
+        st.markdown("### 1. Espaciado Mínimo — Ecuación de Evolución")
         st.latex(r"\dot{d}_i = \frac{4}{d_i} + R_i(\gamma)")
-        st.markdown("""
+        st.markdown(r"""
         Donde:
         - $d_i = \gamma_{i+1} - \gamma_i$: espaciado entre ceros consecutivos
-        - $4/d_i$: término singular repulsivo
-        - $R_i$: término regular (ceros distantes)
+        - $4/d_i$: término singular repulsivo (log-gas coulombiano)
+        - $R_i$: término regular (influencia de ceros distantes)
         """)
-        
-        st.markdown("### 2. Rigidez Espectral Δ₃")
-        st.latex(r"\Delta_3(L) = \frac{1}{L} \min_{A,B} \int_{x_0}^{x_0+L} [N(x) - A - Bx]^2 dx")
-        
-        st.markdown("### 3. Unfolding Semicírculo de Wigner")
-        st.latex(r"F(x) = \frac{1}{2} + \frac{1}{4\pi}\left(x\sqrt{4-x^2} + 4\arcsin(x/2)\right)")
-        
-        st.markdown("### 4. Correlación de 2 puntos (GUE)")
-        st.latex(r"R_2(s) = 1 - \left(\frac{\sin(\pi s)}{\pi s}\right)^2")
-    
-    with doc_tab2:
+
+        st.divider()
+        st.markdown("### 2. P(s) — Distribución de Espaciados Vecinos")
+        col_ps1, col_ps2 = st.columns(2)
+        with col_ps1:
+            st.latex(r"P_\text{Poisson}(s) = e^{-s}")
+            st.caption("Sin repulsión — niveles independientes")
+        with col_ps2:
+            st.latex(r"P_\text{GUE}(s) = \frac{\pi}{2}\,s\,e^{-\frac{\pi}{4}s^2}")
+            st.caption("Wigner surmise — repulsión cuadrática")
+
+        st.divider()
+        st.markdown("### 3. Rigidez Espectral Δ₃ — Dyson–Mehta (1963)")
+        st.latex(r"\Delta_3(L) = \frac{1}{L}\,\min_{A,B}\int_{x_0}^{x_0+L}\!\![N(x)-A-Bx]^2\,dx")
+        col_d1, col_d2, col_d3 = st.columns(3)
+        with col_d1:
+            st.latex(r"\Delta_3^\text{Poisson}(L) = \frac{L}{15}")
+        with col_d2:
+            st.latex(r"\Delta_3^\text{GUE}(L) \approx \frac{\ln L}{\pi^2}")
+        with col_d3:
+            st.latex(r"\Delta_3^\text{GOE}(L) \approx \frac{\ln L}{2\pi^2}")
+
+        st.divider()
+        st.markdown("### 4. Number Variance Σ²(L) — Fluctuaciones")
+        st.latex(r"\Sigma^2(L) = \langle (N(L) - L)^2 \rangle")
+        col_s1, col_s2, col_s3 = st.columns(3)
+        with col_s1:
+            st.latex(r"\Sigma^2_\text{Poisson}(L) = L")
+        with col_s2:
+            st.latex(r"\Sigma^2_\text{GUE}(L) \approx \frac{1}{\pi^2}\ln L")
+        with col_s3:
+            st.latex(r"\Sigma^2_\text{GOE}(L) \approx \frac{2}{\pi^2}\ln L")
+
+        st.divider()
+        st.markdown("### 5. R₂(s) — Correlación de Pares (Montgomery 1973)")
+        st.latex(r"R_2(s) = 1 - \left(\frac{\sin(\pi s)}{\pi s}\right)^2 \quad \text{(GUE)}")
         st.markdown("""
-        ## Glosario de Términos
-        
-        **Δ₃ (Delta-tres):** Estadística de Dyson-Mehta que mide la rigidez espectral.  
-        Valores bajos → correlaciones fuertes (GUE). Valores altos → desorden (Poisson).
-        
-        **Unfolding:** Transformación que normaliza la densidad espectral local a 1.  
-        Esencial para comparar diferentes sistemas.
-        
-        **GUE:** Gaussian Unitary Ensemble. Modelo de matrices aleatorias para sistemas  
-        cuánticos con simetría temporal rota.
-        
-        **Proceso de Poisson:** Secuencia completamente aleatoria sin correlaciones.  
-        Baseline para detectar orden.
-        
-        **RMT:** Random Matrix Theory. Marco teórico para estadística de autovalores  
-        en sistemas complejos.
-        
-        **Hipótesis de Riemann:** Conjetura que todos los ceros no triviales de ζ(s)  
-        están en la línea Re(s) = 1/2.
-        
-        **Conjetura de Montgomery-Odlyzko:** Los ceros de Riemann tienen estadística  
-        espectral idéntica a GUE.
+        **Significado histórico:** Hugh Montgomery conjeturó en 1973 que los ceros de la función
+        zeta de Riemann satisfacen esta fórmula. Freeman Dyson reconoció en esa misma conversación
+        que era exactamente la predicción del GUE — uno de los momentos más sorprendentes
+        de la historia matemática del siglo XX.
         """)
+        col_r2a, col_r2b = st.columns(2)
+        with col_r2a:
+            st.latex(r"R_2^\text{Poisson}(s) = 1")
+            st.caption("Sin correlaciones de largo alcance")
+        with col_r2b:
+            st.latex(r"R_2^\text{GUE}(0) = 0,\quad R_2^\text{GUE}(\infty) = 1")
+            st.caption("Dip en s=0 (repulsión), nodo en s=1")
+
+        st.divider()
+        st.markdown("### 6. K(t) — Factor de Forma Espectral")
+        st.latex(r"K(t) = \frac{1}{N^2}\left|\sum_n e^{2\pi i\,t\,\gamma_n}\right|^2")
+        col_kt1, col_kt2 = st.columns(2)
+        with col_kt1:
+            st.latex(r"K_\text{GUE}(t) = \begin{cases}|t| & |t| \le 1 \\ 1 & |t| > 1\end{cases}")
+        with col_kt2:
+            st.latex(r"K_\text{Poisson}(t) = 1 \quad \forall\, t > 0")
+        st.caption("El 'dip' de K(t) para t<1 en GUE es la huella de correlaciones de largo alcance.")
+
+        st.divider()
+        st.markdown("### 7. r-statistic — Ratio de Espaciados (Atas et al. 2013)")
+        st.latex(r"r_n = \frac{\min(s_n,\,s_{n+1})}{\max(s_n,\,s_{n+1})}, \quad s_n = \gamma_{n+1}-\gamma_n")
+        col_r1, col_r2, col_r3 = st.columns(3)
+        with col_r1:
+            st.metric("⟨r⟩ Poisson", "0.3863", "= 2ln2 − 1")
+        with col_r2:
+            st.metric("⟨r⟩ GOE", "0.5307", "numérico")
+        with col_r3:
+            st.metric("⟨r⟩ GUE", "0.5996", "numérico")
+        st.caption("**Ventaja:** No requiere unfolding — aplicable directamente a ceros de Riemann.")
+
+        st.divider()
+        st.markdown("### 8. Unfolding — Semicírculo de Wigner")
+        st.latex(r"F(x) = \frac{1}{2} + \frac{1}{4\pi}\left(x\sqrt{4-x^2} + 4\arcsin(x/2)\right)")
+        st.caption("CDF del semicírculo en [-2, 2]. Mapea autovalores a densidad uniforme ρ=1.")
+
+
+    with doc_tab2:
+        st.markdown("## Glosario de Términos RMT")
+
+        terminos = {
+            "Δ₃ (Delta-tres)": "Estadística de Dyson-Mehta. Mide la rigidez espectral como la mejor aproximación lineal a la función de conteo N(x). Valores bajos → correlaciones fuertes (GUE). Valores altos → desorden (Poisson).",
+            "Σ²(L) (Number Variance)": "Varianza del número de niveles en una ventana de longitud L. Complementa a Δ₃. Para GUE crece logarítmicamente; para Poisson crece linealmente.",
+            "R₂(s) (Pair Correlation)": "Función de correlación de pares. Mide la densidad de pares de niveles separados por distancia s. Para GUE: R₂(s) = 1-(sin(πs)/πs)². Para Poisson: R₂(s) = 1 (sin estructura).",
+            "K(t) (Spectral Form Factor)": "Transformada de Fourier de R₂(s). Revela correlaciones de largo alcance. El 'dip' de GUE para t<1 es una firma de repulsión de niveles. Para Poisson: K(t)=1 (plano).",
+            "r-statistic": "Ratio de espaciados consecutivos rₙ = min(sₙ,sₙ₊₁)/max(sₙ,sₙ₊₁). No requiere unfolding. ⟨r⟩: Poisson≈0.386, GOE≈0.531, GUE≈0.600.",
+            "P(s)": "Distribución de espaciados nearest-neighbor. GUE: campana en s≈1 (repulsión). Poisson: decaimiento exponencial (sin repulsión).",
+            "Unfolding": "Transformación que normaliza la densidad espectral local a 1. Esencial para comparar estadísticas entre diferentes sistemas.",
+            "GUE": "Gaussian Unitary Ensemble. Matrices aleatorias hermitianas con entradas complejas. Modela sistemas cuánticos con simetría temporal rota. Repulsión de niveles cuadrática.",
+            "GOE": "Gaussian Orthogonal Ensemble. Matrices aleatorias simétricas con entradas reales. Modela sistemas cuánticos con simetría temporal conservada. Repulsión de niveles lineal.",
+            "Proceso de Poisson": "Secuencia completamente aleatoria sin correlaciones. Baseline para detectar orden espectral.",
+            "Hipótesis de Riemann": "Conjetura de que todos los ceros no triviales de ζ(s) están en la línea Re(s) = 1/2. Uno de los Problemas del Milenio del Clay Institute.",
+            "Conjetura Montgomery-Odlyzko": "Los ceros de la función zeta de Riemann tienen estadística espectral consistente con GUE. Montgomery (1973) demostró el resultado para R₂(s); Odlyzko (1987) lo verificó numéricamente.",
+            "Log-gas": "Modelo de partículas con interacción logarítmica. Describe la estadística de autovalores de GUE como un gas de Coulomb 2D en equilibrio térmico.",
+            "Repulsión de niveles": "Tendencia de los autovalores a mantenerse separados. Poisson: sin repulsión. GOE: lineal en s. GUE: cuadrática en s.",
+        }
+
+        for term, defn in terminos.items():
+            with st.expander(f"**{term}**"):
+                st.markdown(defn)
+
+
     
     with doc_tab3:
-        st.markdown("""
-        ## 📄 Papers Clave (Optimizados para Ferias Científicas)
-        
-        ### Para Jueces Científicos
-        
-        1. **Mehta, M. L. (2004).** *Random Matrix Theory*  
-           📚 Libro fundamental de RMT  
-           🔗 [Springer](https://www.springer.com)
-        
-        2. **Odlyzko, A. M. (1987).** *On the distribution of spacings between zeros of the zeta function*  
-           🎯 Verificación numérica Montgomery-Odlyzko  
-           🔗 [Mathematics of Computation](https://doi.org/10.2307/2007890)
-        
-        3. **Dyson, F. J. (1962).** *Statistical Theory of Energy Levels of Complex Systems*  
-           ⭐ Origen de la rigidez espectral  
-           🔗 [Journal of Mathematical Physics](https://doi.org/10.1063/1.1703862)
-        
-        ### Para Público General
-        
-        4. **du Sautoy, M. (2003).** *The Music of the Primes*  
-           📖 Divulgación sobre ceros de Riemann  
-           🌐 Popular science
-        
-        5. **Devlin, K. (2002).** *The Millennium Problems*  
-           🏆 Problemas del milenio (Clay Institute)
-        
-        ### Papers Técnicos Modernos
-        
-        6. **Forrester, P. J. (2010).** *Log-Gases and Random Matrices*  
-           🔬 Conexión con física estadística  
-           🔗 [Princeton University Press](https://press.princeton.edu)
-        
-        7. **Conrey, J. B. (2003).** *The Riemann Hypothesis*  
-           📊 Estado del arte técnico  
-           🔗 [Notices of the AMS](https://www.ams.org)
-        """)
-        
-        st.download_button(
-            label="📥 Descargar Bibliografía Completa (BibTeX)",
-            data="""
-@book{mehta2004,
-  title={Random Matrix Theory},
-  author={Mehta, M. L.},
-  year={2004},
-  publisher={Elsevier}
-}
+        st.markdown("## 📄 Papers Clave")
 
-@article{odlyzko1987,
-  title={On the distribution of spacings between zeros of the zeta function},
-  author={Odlyzko, A. M.},
-  journal={Mathematics of Computation},
-  volume={48},
-  pages={273--308},
-  year={1987}
-}
+        st.markdown("### Fundamentos Históricos")
+        papers_hist = [
+            ("Montgomery, H. L. (1973)", "The pair correlation of zeros of the zeta function",
+             "📐 Conjetura que conecta ζ con GUE. Demostrado para R₂(s).",
+             "https://doi.org/10.1090/pspum/024/9944"),
+            ("Dyson, F. J. (1962)", "Statistical Theory of Energy Levels of Complex Systems I–III",
+             "⭐ Introduce GUE/GOE/GSE, factor de forma y Δ₃.",
+             "https://doi.org/10.1063/1.1703862"),
+            ("Mehta, M. L. & Dyson, F. J. (1963)", "Statistical Theory of the Energy Levels of Complex Systems V",
+             "🎯 Fórmula analítica de Δ₃(L) para GUE.",
+             "https://doi.org/10.1063/1.1704292"),
+            ("Odlyzko, A. M. (1987)", "On the distribution of spacings between zeros of the zeta function",
+             "🔢 Verificación numérica Montgomery-Odlyzko con 10⁵ ceros.",
+             "https://doi.org/10.2307/2007890"),
+        ]
+        for autores, titulo, desc, url in papers_hist:
+            st.markdown(f"**{autores}**  \n*{titulo}*  \n{desc}  \n🔗 [{url[:50]}...]({url})")
+            st.divider()
 
+        st.markdown("### Papers Modernos")
+        papers_mod = [
+            ("Atas, Y. Y. et al. (2013)", "Distribution of the ratio of consecutive level spacings in random matrix ensembles",
+             "📊 Fórmula analítica de P(r) para GOE/GUE/Poisson. El r-statistic moderno.",
+             "https://doi.org/10.1103/PhysRevLett.110.084101"),
+            ("Bohigas, O., Giannoni, M. J. & Schmit, C. (1984)", "Characterization of Chaotic Quantum Spectra",
+             "💥 Conjetura BGS: sistemas caóticos clásicos → estadística GOE/GUE.",
+             "https://doi.org/10.1103/PhysRevLett.52.1"),
+            ("Forrester, P. J. (2010)", "Log-Gases and Random Matrices",
+             "📚 Tratado completo. Log-gas, pair correlation, form factor.",
+             "https://press.princeton.edu"),
+        ]
+        for autores, titulo, desc, url in papers_mod:
+            st.markdown(f"**{autores}**  \n*{titulo}*  \n{desc}  \n🔗 [{url[:50]}...]({url})")
+            st.divider()
+
+        bibtex = r"""@article{montgomery1973,
+  title={The pair correlation of zeros of the zeta function},
+  author={Montgomery, H. L.},
+  booktitle={Proc. Symp. Pure Math.},
+  volume={24}, pages={181--193}, year={1973}
+}
 @article{dyson1962,
   title={Statistical Theory of Energy Levels of Complex Systems},
   author={Dyson, F. J.},
   journal={Journal of Mathematical Physics},
-  volume={3},
-  pages={140--175},
-  year={1962}
+  volume={3}, pages={140--175}, year={1962}
 }
-            """,
-            file_name="bibliografia_rigidez_espectral.bib",
-            mime="text/plain"
+@article{odlyzko1987,
+  title={On the distribution of spacings between zeros of the zeta function},
+  author={Odlyzko, A. M.},
+  journal={Mathematics of Computation},
+  volume={48}, pages={273--308}, year={1987}
+}
+@article{atas2013,
+  title={Distribution of the ratio of consecutive level spacings},
+  author={Atas, Y. Y. and Bogomolny, E. and Giraud, O. and Roux, G.},
+  journal={Physical Review Letters},
+  volume={110}, pages={084101}, year={2013}
+}
+@article{bohigas1984,
+  title={Characterization of chaotic quantum spectra},
+  author={Bohigas, O. and Giannoni, M. J. and Schmit, C.},
+  journal={Physical Review Letters},
+  volume={52}, pages={1--4}, year={1984}
+}"""
+        st.download_button(
+            label="📥 Descargar Bibliografía (BibTeX)",
+            data=bibtex,
+            file_name="srce_bibliografia.bib",
+            mime="text/plain",
         )
+
     
     with doc_tab4:
         st.markdown("""
