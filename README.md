@@ -31,6 +31,10 @@ Proveer una infraestructura reproducible para comparar espectros.
 
 La prioridad es consistencia matemática, no resultados espectaculares.
 
+📘 Marco teórico y calibración
+
+- **[srce/THEORY.md](srce/THEORY.md)** — Régimen de rigidez en **ventanas finitas** vs límites asintóticos de Mehta; referencias operativas del `EnsembleClassifier` (\(\alpha_{\mathrm{eff}}\) para GUE/GOE); jerarquía de **Z-scores** frente a baselines empíricos (detección sensible al comportamiento numérico real, no solo a idealizaciones \(L\to\infty\)).
+
 🏗️ Arquitectura del Sistema
 1️⃣ Núcleo de Rigidez (analysis/rigidity.py)
 
