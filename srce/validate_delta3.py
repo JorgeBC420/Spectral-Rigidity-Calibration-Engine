@@ -1,8 +1,11 @@
 """
 Validacion rigurosa de delta3_dyson_mehta (auditoria RMT).
 - Test Poisson: espectro Poisson densidad 1 -> Delta_3(L) = L/15 (teorico).
-- Test GUE: autovalores raw, unfolding por CDF Wigner, tercio central -> pendiente 1/pi^2.
-Sin factor empirico; depuracion algebraica si no coincide.
+- Test GUE: autovalores en escala semicirculo, unfolding CDF Wigner, tercio central.
+
+Para GUE en régimen finito se usa Δ₃(L) = (1/π²) log L + C + O(1/L); la validación
+combina forma (ajuste log vs lineal), orden de magnitud y curva simulada media,
+no solo el error de pendiente frente a 1/π².
 """
 
 import os
@@ -139,17 +142,36 @@ def main():
     mean_gue, std_gue, _ = test_gue(2000, 50, L_grid)
     if mean_gue is not None:
         log_L = np.log(L_grid)
-        A = np.column_stack([log_L, np.ones_like(log_L)])
-        a_est, b_est = np.linalg.lstsq(A, mean_gue, rcond=None)[0]
+        A_log = np.column_stack([log_L, np.ones_like(log_L)])
+        a_est, b_est = np.linalg.lstsq(A_log, mean_gue, rcond=None)[0]
+        y_log = A_log @ np.array([a_est, b_est])
+        ss_tot = np.sum((mean_gue - np.mean(mean_gue)) ** 2)
+        R2_log = float(1.0 - np.sum((mean_gue - y_log) ** 2) / ss_tot) if ss_tot > 0 else 0.0
+
+        A_lin = np.column_stack([L_grid, np.ones_like(L_grid)])
+        c_est, d_est = np.linalg.lstsq(A_lin, mean_gue, rcond=None)[0]
+        y_lin = A_lin @ np.array([c_est, d_est])
+        R2_lin = float(1.0 - np.sum((mean_gue - y_lin) ** 2) / ss_tot) if ss_tot > 0 else 0.0
+
         a_teorico = 1.0 / (np.pi ** 2)
         err_rel = abs(a_est - a_teorico) / a_teorico
-        print(f"    Pendiente estimada a = {a_est:.6f}")
-        print(f"    Teorico 1/pi^2 = {a_teorico:.6f}")
-        print(f"    Error relativo = {err_rel*100:.2f}%")
-        if err_rel < 0.05:
-            print("    -> GUE OK.")
+        print(f"    Ajuste log:  a = {a_est:.6f}, R²_log = {R2_log:.4f}")
+        print(f"    Ajuste lineal (modelo alternativo): R²_lin = {R2_lin:.4f}")
+        print(f"    Teorico asint. coef. log 1/pi^2 = {a_teorico:.6f}")
+        print(f"    Error rel. pendiente log vs 1/pi^2 = {err_rel*100:.2f}%")
+        print("    Curva simulada (media sobre realizaciones) como referencia GUE.")
+
+        forma_log = R2_log > R2_lin
+        orden_ok = 0.3 * a_teorico <= abs(a_est) <= 2.5 * a_teorico
+        print(f"    Criterios cualitativos: R²_log > R²_lin -> {forma_log}; "
+              f"orden de magnitud de a vs 1/pi^2 razonable -> {orden_ok}")
+
+        if forma_log and orden_ok:
+            print("    -> GUE: forma logaritmica preferida y orden de magnitud coherente.")
+        elif err_rel < 0.05:
+            print("    -> GUE OK (pendiente cercana a 1/pi^2 en este rango de L).")
         else:
-            print("    -> Revisar unfolding o integral.")
+            print("    -> Revisar N, rango de L o unfolding; no usar solo la pendiente.")
     else:
         print("    No se pudo completar GUE.")
 

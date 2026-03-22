@@ -180,29 +180,41 @@ def generar_poisson(
     rng:     Optional[np.random.Generator] = None,
 ) -> np.ndarray:
     """
-    Proceso de Poisson uniforme (mínima rigidez, sin correlaciones).
+    Tiempos de arribo de un proceso de Poisson homogéneo de tasa 1 (espaciados Exp(1)).
 
-    RNG (v1.1): rng > seed > aleatorio. np.random.seed() nunca se llama.
+    Se construye ``levels = cumsum(Exp(1), size=N)``. Opcionalmente se aplica una
+    afinidad que mapea ``[levels[0], levels[-1]]`` a ``soporte=(a,b)``, preservando
+    ratios entre espaciados (solo cambia escala y origen).
+
+    RNG (v1.1): rng > seed > aleatorio.
 
     Args:
-        N      : número de puntos.
-        soporte: (a, b) del intervalo. Default (0, N).
+        N      : número de saltos exponenciales (N niveles tras cumsum).
+        soporte: si se da ``(a, b)``, reescala linealmente al intervalo; si es None,
+                 se devuelven los tiempos de arribo sin reescalar.
         seed   : semilla (solo si rng=None).
         rng    : Generator ya construido (prioridad).
 
     Returns:
-        Array de N puntos ordenados en [a, b].
+        Array de longitud N, ordenado (estrictamente creciente si N≥2).
     """
     if N < 2:
         raise ValueError(f"N debe ser >= 2, recibido: {N}")
-    if soporte is None:
-        soporte = (0.0, float(N))
-    a, b = soporte
-    if a >= b:
-        raise ValueError(f"Soporte inválido: a={a} >= b={b}")
 
     _rng = rng if rng is not None else np.random.default_rng(seed)
-    return np.sort(_rng.uniform(a, b, N))
+    levels = np.cumsum(_rng.exponential(1.0, size=N))
+
+    if soporte is not None:
+        a, b = soporte
+        if a >= b:
+            raise ValueError(f"Soporte inválido: a={a} >= b={b}")
+        lo, hi = float(levels[0]), float(levels[-1])
+        span = hi - lo
+        if span <= 0:
+            raise ValueError("Degenerado: span de niveles nulo")
+        levels = a + (b - a) * (levels - lo) / span
+
+    return np.asarray(levels, dtype=np.float64)
 
 
 # ── GOE (nuevo) ───────────────────────────────────────────────────────────────

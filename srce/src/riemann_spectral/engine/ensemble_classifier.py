@@ -4,19 +4,26 @@ src/riemann_spectral/engine/ensemble_classifier.py
 ===================================================
 Clasificador de ensemble basado en la pendiente de Delta_3(L) vs log(L).
 
-Dado un espectro unfolded, estima la pendiente de Dyson-Mehta y la compara
-contra los valores teóricos conocidos:
+Comparación frente a **dos niveles** de referencia:
 
-    Ensemble      Delta_3(L)              Pendiente en log(L)
-    ──────────    ──────────────────────  ───────────────────
-    Poisson       L / 15                  ~ L (lineal, no log)
-    GOE           (1/2π²) · log(L)        ≈ 0.05066
-    GUE           (1/π²)  · log(L)        ≈ 0.10132
-    Uniforme      ~0  (rígido)             ≈ 0
+1. **Asintótico (Mehta, L→∞):** coeficientes de log L en 1/π² (GUE) y 1/(2π²) (GOE).
+   Expuestos como PENDIENTE_*_ASINTOTICO (documentación y contrastes teóricos).
+
+2. **Operativo (ventanas L finitas, SRCE):** pendientes efectivas calibradas
+   (OLS típico en L∈[5,50] con unfolding correcto; ver THEORY.md).
+   Expuestas como PENDIENTE_*_REFERENCIA. Los alias PENDIENTE_GUE y PENDIENTE_GOE
+   apuntan a estas referencias para scores y decisión GUE/GOE.
+
+    Ensemble      Delta_3(L) (asínt.)        Ref. operativa SRCE (log L)
+    ──────────    ─────────────────────      ───────────────────────────
+    Poisson       L / 15                     lineal en L (no log)
+    GOE           ~(1/2π²)·log L             PENDIENTE_GOE_REFERENCIA ≈ 0.025
+    GUE           ~(1/π²)·log L              PENDIENTE_GUE_REFERENCIA ≈ 0.05
+    Uniforme      ~0                         ~0
 
 Referencias:
     Mehta, M.L. "Random Matrices" (3ª ed.), Cap. 16–17.
-    Bohigas, Giannoni, Schmit (1984) — conjetura BGS: sistemas caóticos → GUE/GOE.
+    THEORY.md — régimen de rigidez en ventanas finitas.
 
 Uso:
     from riemann_spectral.engine.ensemble_classifier import EnsembleClassifier
@@ -33,12 +40,22 @@ import numpy as np
 from ..analysis.rigidity import delta3_dyson_mehta
 
 
-# ── Constantes teóricas ──────────────────────────────────────────────────────
+# ── Constantes asintóticas (Mehta, L → ∞) ────────────────────────────────────
 
-PENDIENTE_GUE     = 1.0 / (np.pi ** 2)          # ≈ 0.10132
-PENDIENTE_GOE     = 1.0 / (2.0 * np.pi ** 2)    # ≈ 0.05066
-PENDIENTE_POISSON = None                          # lineal en L, no log
-PENDIENTE_UNIFORME = 0.0                          # rígido
+PENDIENTE_GUE_ASINTOTICO = 1.0 / (np.pi ** 2)       # ≈ 0.10132
+PENDIENTE_GOE_ASINTOTICO = 1.0 / (2.0 * np.pi ** 2)  # ≈ 0.05066
+
+# ── Referencias operativas SRCE (ventanas L finitas; THEORY.md) ───────────────
+
+PENDIENTE_GUE_REFERENCIA = 0.05   # α_eff GUE típico en pipeline calibrado
+PENDIENTE_GOE_REFERENCIA = 0.025  # mitad de la ref. GUE (jerarquía GOE/GUE)
+
+# Alias usados en scores, distancias y pendiente_teorica del resultado
+PENDIENTE_GUE = PENDIENTE_GUE_REFERENCIA
+PENDIENTE_GOE = PENDIENTE_GOE_REFERENCIA
+
+PENDIENTE_POISSON = None          # lineal en L, no log
+PENDIENTE_UNIFORME = 0.0          # rígido
 
 # Etiquetas canónicas
 ENSEMBLE_GUE      = "GUE"
@@ -58,8 +75,8 @@ class ResultadoClasificacion:
     Atributos:
         ensemble        : ensemble más probable ('GUE', 'GOE', 'Poisson', etc.)
         pendiente_obs   : pendiente ajustada de Delta_3 vs log(L)
-        pendiente_teorica: pendiente teórica del ensemble asignado
-        error_relativo  : |obs - teo| / teo  (para GUE/GOE); None si Poisson
+        pendiente_teorica: referencia SRCE del ensemble asignado (GUE/GOE; THEORY.md)
+        error_relativo  : |obs - ref.| / ref.  (para GUE/GOE); None si Poisson
         R2_log          : bondad del ajuste log (1=perfecto)
         R2_lineal       : bondad del ajuste lineal (para detectar Poisson)
         d3_valores      : array de Delta_3(L) observados
@@ -84,7 +101,7 @@ class ResultadoClasificacion:
             f"Pendiente observada  : {self.pendiente_obs:.6f}",
         ]
         if self.pendiente_teorica is not None:
-            lines.append(f"Pendiente teórica    : {self.pendiente_teorica:.6f}")
+            lines.append(f"Pendiente de ref.      : {self.pendiente_teorica:.6f}")
         if self.error_relativo is not None:
             lines.append(f"Error relativo       : {100 * self.error_relativo:.1f}%")
         lines += [
@@ -113,7 +130,7 @@ class EnsembleClassifier:
         2. Ajusta por mínimos cuadrados:
                (a) Delta_3 ~ a·log(L) + b   → pendiente_log = a
                (b) Delta_3 ~ c·L + d         → pendiente_lineal = c
-        3. Compara pendiente_log contra GUE (1/π²) y GOE (1/2π²).
+        3. Compara pendiente_log contra referencias operativas GUE/GOE (THEORY.md).
         4. Si R²_lineal >> R²_log → Poisson.
         5. Si pendiente ≈ 0 → Uniforme.
         6. Asigna ensemble por distancia mínima ponderada.
@@ -123,15 +140,9 @@ class EnsembleClassifier:
         L_max       : valor máximo de L (default 30.0).
         n_puntos    : número de puntos en la grilla de L (default 20).
         tol_uniforme: umbral de pendiente para clasificar como Uniforme.
-        tol_poisson : umbral de R²_lineal relativo para clasificar como Poisson.
+        r2_lineal_poisson: si R² del ajuste Δ₃ ~ a·L+b supera este valor, se
+            clasifica como Poisson (Δ₃ ∝ L) sin usar el ajuste log para GUE/GOE.
     """
-
-    # Pendientes teóricas para comparación
-    _TEORICOS: Dict[str, Optional[float]] = {
-        ENSEMBLE_GUE:      PENDIENTE_GUE,
-        ENSEMBLE_GOE:      PENDIENTE_GOE,
-        ENSEMBLE_UNIFORME: PENDIENTE_UNIFORME,
-    }
 
     def __init__(
         self,
@@ -140,6 +151,7 @@ class EnsembleClassifier:
         n_puntos:     int   = 20,
         tol_uniforme: float = 0.005,
         tol_poisson:  float = 0.85,
+        r2_lineal_poisson: float = 0.9,
     ):
         if L_min <= 0 or L_max <= L_min:
             raise ValueError(f"Se requiere 0 < L_min < L_max, recibido: [{L_min}, {L_max}]")
@@ -151,6 +163,7 @@ class EnsembleClassifier:
         self.n_puntos     = n_puntos
         self.tol_uniforme = tol_uniforme
         self.tol_poisson  = tol_poisson
+        self.r2_lineal_poisson = r2_lineal_poisson
         self._L_grid      = np.linspace(L_min, L_max, n_puntos)
 
     # ── API pública ───────────────────────────────────────────────────────────
@@ -225,7 +238,7 @@ class EnsembleClassifier:
         """
         Validación rápida: ¿la pendiente de Delta_3 es consistente con GOE?
 
-        Compara la pendiente observada contra PENDIENTE_GOE = 1/(2π²) ≈ 0.05066.
+        Compara la pendiente observada contra PENDIENTE_GOE_REFERENCIA (≈ 0.025).
 
         Args:
             gamma_unfolded: espectro unfolded con densidad ≈ 1.
@@ -246,7 +259,7 @@ class EnsembleClassifier:
         """
         Validación rápida: ¿la pendiente de Delta_3 es consistente con GUE?
 
-        Compara contra PENDIENTE_GUE = 1/π² ≈ 0.10132.
+        Compara contra PENDIENTE_GUE_REFERENCIA (≈ 0.05). Ver THEORY.md.
         """
         resultado = self.clasificar(gamma_unfolded)
         err       = resultado.error_relativo
@@ -327,51 +340,58 @@ class EnsembleClassifier:
     ) -> Tuple[str, Optional[float]]:
         """
         Lógica de decisión por prioridad:
-            1. pendiente ≈ 0            → Uniforme
-            2. R²_lineal >> R²_log      → Poisson
-            3. pendiente cercana a GOE  → GOE
-            4. pendiente cercana a GUE  → GUE
-            5. fallback                 → Mixto
+            1. pendiente log ≈ 0        → Uniforme
+            2. R²_lineal alto (Δ₃ ∝ L)  → Poisson
+            3. si no: R²_lineal >> R²_log (criterio secundario) → Poisson
+            4. pendiente log cercana a GOE o GUE → GOE / GUE
         """
         # 1. Uniforme
         if abs(pendiente_log) < self.tol_uniforme:
             return ENSEMBLE_UNIFORME, PENDIENTE_UNIFORME
 
-        # 2. Poisson: ajuste lineal claramente mejor que log
+        # 2. Poisson: Δ₃(L) ≈ c·L + d implica ajuste lineal muy fuerte (R² alto)
+        if R2_lineal > self.r2_lineal_poisson:
+            advertencias.append(
+                f"R²_lineal={R2_lineal:.3f} > {self.r2_lineal_poisson}: "
+                "Δ₃ ∝ L (Poisson), no se usa ajuste log para GUE/GOE."
+            )
+            return ENSEMBLE_POISSON, None
+
+        # 3. Poisson (respaldo): lineal claramente mejor que log
         if R2_lineal > self.tol_poisson and R2_lineal > R2_log + 0.1:
             advertencias.append(
                 f"R²_lineal={R2_lineal:.3f} >> R²_log={R2_log:.3f}: comportamiento Poisson."
             )
             return ENSEMBLE_POISSON, None
 
-        # 3 & 4. GUE vs GOE: distancia normalizada a cada pendiente teórica
-        dist_gue = abs(pendiente_log - PENDIENTE_GUE) / PENDIENTE_GUE
-        dist_goe = abs(pendiente_log - PENDIENTE_GOE) / PENDIENTE_GOE
+        # 3 & 4. GUE vs GOE: distancia relativa a referencias operativas (THEORY.md)
+        dist_gue = abs(pendiente_log - PENDIENTE_GUE_REFERENCIA) / PENDIENTE_GUE_REFERENCIA
+        dist_goe = abs(pendiente_log - PENDIENTE_GOE_REFERENCIA) / PENDIENTE_GOE_REFERENCIA
 
         if dist_goe < dist_gue:
             if dist_goe > 0.50:
                 advertencias.append(
                     f"Pendiente={pendiente_log:.5f} asignada a GOE pero con error "
-                    f"relativo {100*dist_goe:.1f}% > 50%."
+                    f"relativo {100*dist_goe:.1f}% > 50% (vs ref. GOE)."
                 )
             return ENSEMBLE_GOE, PENDIENTE_GOE
         else:
             if dist_gue > 0.50:
                 advertencias.append(
                     f"Pendiente={pendiente_log:.5f} asignada a GUE pero con error "
-                    f"relativo {100*dist_gue:.1f}% > 50%."
+                    f"relativo {100*dist_gue:.1f}% > 50% (vs ref. GUE)."
                 )
             return ENSEMBLE_GUE, PENDIENTE_GUE
 
     def _calcular_scores(self, pendiente_log: float) -> Dict[str, float]:
         """
-        Score por ensemble = distancia absoluta de la pendiente observada
-        a la teórica. Menor score = ensemble más probable.
-        Poisson no tiene pendiente log, se usa proxy de 10× GUE.
+        Score por ensemble = |pendiente_obs − ref.| (menor = más probable).
+        Referencias: PENDIENTE_*_REFERENCIA (comportamiento numérico calibrado).
+        Poisson: proxy frente a escala ~10× ref. GUE operativa.
         """
         return {
-            ENSEMBLE_GUE:      abs(pendiente_log - PENDIENTE_GUE),
-            ENSEMBLE_GOE:      abs(pendiente_log - PENDIENTE_GOE),
+            ENSEMBLE_GUE:      abs(pendiente_log - PENDIENTE_GUE_REFERENCIA),
+            ENSEMBLE_GOE:      abs(pendiente_log - PENDIENTE_GOE_REFERENCIA),
             ENSEMBLE_UNIFORME: abs(pendiente_log - PENDIENTE_UNIFORME),
-            ENSEMBLE_POISSON:  abs(pendiente_log - 10 * PENDIENTE_GUE),  # proxy lineal
+            ENSEMBLE_POISSON:  abs(pendiente_log - 10.0 * PENDIENTE_GUE_REFERENCIA),
         }

@@ -186,9 +186,10 @@ def _delta3_recta(y: np.ndarray, L: float, n_windows: int = 100) -> float:
             + B * B * L3 / 3.0
         ) / L
 
-        if val > 0.0:
-            acum += val
-            cnt  += 1
+        # Incluir todas las contribuciones (val puede ser < 0 por discretización);
+        # omitirlas introduce sesgo en el promedio sobre ventanas.
+        acum += val
+        cnt += 1
 
     return acum / cnt if cnt > 0 else 0.0
 
@@ -207,7 +208,8 @@ def delta3_dyson_mehta(gamma_unfolded: np.ndarray, L: float) -> float:
         L             : longitud de la ventana.
 
     Returns:
-        Delta_3 >= 0, o np.nan si input inválido.
+        Delta_3(L) (promedio sobre ventanas; puede ser ligeramente negativo por
+        discretización numérica), o np.nan si input inválido.
     """
     if not np.all(np.isfinite(gamma_unfolded)) or len(gamma_unfolded) < 2 or L <= 0:
         return np.nan
@@ -278,8 +280,8 @@ if _NUMBA:
                     B   = 12.0 * I2 / L3 - 6.0 * I1 / L2
                     A   = (I1 - B * L2 * 0.5) / L
                     val = (I3 - 2*A*I1 - 2*B*I2 + A*A*L + A*B*L2 + B*B*L3/3) / L
-                    if val > 0.0:
-                        acum += val; cnt += 1
+                    acum += val
+                    cnt += 1
 
                 resultados[r, k] = acum / cnt if cnt > 0 else 0.0
 

@@ -52,6 +52,8 @@ def normalize_spacing(spectrum: np.ndarray) -> np.ndarray:
     
     if len(spectrum) < 2:
         return spectrum
+
+    spectrum = np.sort(spectrum)
     
     # Calcular spacing medio
     s_mean = np.mean(np.diff(spectrum))

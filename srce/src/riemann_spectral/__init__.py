@@ -5,7 +5,8 @@ __version__ = "0.2.0"
 
 from . import data
 from . import analysis
+from . import statistics
 from . import storage
 from . import engine
 
-__all__ = ["data", "analysis", "storage", "engine"]
+__all__ = ["data", "analysis", "statistics", "storage", "engine"]

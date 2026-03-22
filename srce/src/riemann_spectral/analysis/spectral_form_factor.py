@@ -3,9 +3,21 @@
 src/riemann_spectral/analysis/spectral_form_factor.py
 ======================================================
 
-Factor de forma espectral K(t) y r-statistic.
+**Convenciones (dos objetos distintos en la literatura):**
 
-── SPECTRAL FORM FACTOR K(t) ─────────────────────────────────────────────────
+1. **Factor de forma coherente (oficial SRCE)** — ``spectral_form_factor``::
+
+       K(τ) = (1/N) |∑ⱼ exp(i τ λⱼ)|²
+
+   Usado en quantum chaos / SYK (dip–ramp–plateau). Fase **sin** factor 2π en τ.
+
+2. **Factor de forma tipo Mehta** — ``spectral_form_factor_mehta``::
+
+       K_raw(t) = (1/N²) |∑ₙ exp(2π i t γₙ)|²
+
+   Comparación con ``spectral_form_factor_mehta_teorico`` (GUE/GOE/Poisson según Mehta).
+
+── SPECTRAL FORM FACTOR K(t) Mehta ──────────────────────────────────────────
 
 K(t) es la transformada de Fourier de la función de correlación de pares R₂(s):
 
@@ -27,10 +39,10 @@ porque no requiere unfolding:
 
     rₙ = min(sₙ, sₙ₊₁) / max(sₙ, sₙ₊₁)    con sₙ = γₙ₊₁ - γₙ
 
-Valores medios teóricos:
-    Poisson : ⟨r⟩ ≈ 0.3863  (= 2·ln(2) - 1)
-    GUE     : ⟨r⟩ ≈ 0.5996
-    GOE     : ⟨r⟩ ≈ 0.5307
+Valores medios teóricos (Atas et al.; ver ``statistics.r_statistic``):
+    Poisson : ⟨r⟩ = 2·ln(2) − 1 ≈ 0.386294…
+    GOE     : ⟨r⟩ = 4 − 2√3 ≈ 0.535898…
+    GUE     : ⟨r⟩ ≈ 0.60272166211556
 
 No requiere unfolding → más robusto frente a variaciones de densidad.
 
@@ -46,14 +58,22 @@ Versión: 1.0.0
 import numpy as np
 from typing import Tuple, Optional
 
+from ..statistics.r_statistic import (
+    R_POISSON_EXACT as R_MEAN_POISSON,
+    R_GOE_EXACT as R_MEAN_GOE,
+    R_GUE_EXACT as R_MEAN_GUE,
+)
 
 # ============================================================================
-# CONSTANTES TEÓRICAS
+# Numba (factor coherente)
 # ============================================================================
-
-R_MEAN_POISSON = 2 * np.log(2) - 1    # ≈ 0.3863
-R_MEAN_GOE     = 0.5307                # numérico (Atas et al. 2013)
-R_MEAN_GUE     = 0.5996                # numérico (Atas et al. 2013)
+try:
+    from numba import njit as _njit_sff
+except ImportError:
+    def _njit_sff(*args, **kwargs):
+        def _d(f):
+            return f
+        return _d if not args or not callable(args[0]) else args[0]
 
 
 # ============================================================================
@@ -163,10 +183,10 @@ def r_distribucion_teorica(
     Para Poisson:
         P(r) = 2 / (1 + r)²
 
-    Valores medios teóricos:
-        ⟨r⟩_Poisson ≈ 0.3863
-        ⟨r⟩_GOE     ≈ 0.5307
-        ⟨r⟩_GUE     ≈ 0.5996
+    Valores medios teóricos (consistentes con ``R_MEAN_*``):
+        ⟨r⟩_Poisson = 2 ln 2 − 1
+        ⟨r⟩_GOE     = 4 − 2√3
+        ⟨r⟩_GUE     ≈ 0.60272166211556
 
     Args:
         r_grid   : Array de valores r ∈ [0, 1].
@@ -199,12 +219,12 @@ def r_distribucion_teorica(
 # SPECTRAL FORM FACTOR K(t)
 # ============================================================================
 
-def spectral_form_factor_teorico(
+def spectral_form_factor_mehta_teorico(
     t_grid: np.ndarray,
     ensemble: str = "GUE",
 ) -> np.ndarray:
     """
-    Factor de forma espectral teórico K(t) para t ≥ 0.
+    Factor de forma espectral teórico K(t) para t ≥ 0 (convención Mehta, Cap. 9).
 
     Args:
         t_grid   : Array de tiempos t ≥ 0.
@@ -238,14 +258,14 @@ def spectral_form_factor_teorico(
         raise ValueError(f"ensemble desconocido: '{ensemble}'")
 
 
-def spectral_form_factor(
+def spectral_form_factor_mehta(
     levels: np.ndarray,
     t_max: float = 3.0,
     n_t: int = 200,
     smooth_sigma: Optional[float] = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Calcula K(t) experimental a partir de un espectro unfolded.
+    Calcula K(t) experimental (convención Mehta: fase 2π t γ, normalización 1/N²).
 
     Definición:
         K_raw(t) = (1/N²) · |∑ₙ exp(2πi·t·γₙ)|²
@@ -300,6 +320,137 @@ def spectral_form_factor(
     return t_grid, K_vals
 
 
+# Alias retrocompatible (antes ``spectral_form_factor_teorico`` = curva Mehta GUE/GOE/Poisson)
+spectral_form_factor_teorico = spectral_form_factor_mehta_teorico
+
+
+# ============================================================================
+# FACTOR DE FORMA COHERENTE K(τ) = |∑ exp(iτλⱼ)|² / N  (definición oficial)
+# ============================================================================
+
+def form_factor_poisson(tau: np.ndarray, N: int) -> np.ndarray:
+    """Referencia Poisson: K(τ) ≡ 1 (sin correlación entre niveles)."""
+    return np.ones_like(tau)
+
+
+def form_factor_gue_analytical(tau: np.ndarray, N: int) -> np.ndarray:
+    """
+    Aproximación escalar de Haake para GUE (dip / ramp / plateau); no es la
+    sincronización exacta con la traza de R₂(s).
+    """
+    tau = np.asarray(tau)
+    K = np.zeros_like(tau, dtype=np.float64)
+    dip_mask = tau < 1
+    K[dip_mask] = tau[dip_mask] ** 2
+    ramp_mask = (tau >= 1) & (tau < N)
+    K[ramp_mask] = tau[ramp_mask]
+    K[tau >= N] = 1.0
+    transition_mask = (tau >= 0.5) & (tau < 2)
+    if np.any(transition_mask):
+        t = tau[transition_mask]
+        K[transition_mask] = t**2 + 0.3 * t
+    return np.minimum(K, 1.0)
+
+
+@_njit_sff
+def _compute_form_factor_numba(spectrum, tau_grid):
+    """
+    K(τ) = |∑_j exp(iτE_j)|² / N.
+    """
+    N = len(spectrum)
+    n_tau = len(tau_grid)
+    K = np.zeros(n_tau, dtype=np.float64)
+    for i in range(n_tau):
+        tau = tau_grid[i]
+        real_sum = 0.0
+        imag_sum = 0.0
+        for j in range(N):
+            phase = tau * spectrum[j]
+            real_sum += np.cos(phase)
+            imag_sum += np.sin(phase)
+        K[i] = (real_sum**2 + imag_sum**2) / N
+    return K
+
+
+def spectral_form_factor(
+    spectrum: np.ndarray,
+    tau_max: float = 20.0,
+    n_points: int = 200,
+    normalize: bool = True,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Factor de forma espectral coherente (definición canónica usada en SRCE).
+
+    K(τ) = (1/N) |∑ⱼ exp(i τ λⱼ)|²
+
+    No confundir con ``spectral_form_factor_mehta`` (fase 2π t γ, normalización N²).
+    """
+    spectrum = np.asarray(spectrum, dtype=np.float64)
+    N = len(spectrum)
+    tau_grid = np.linspace(0, tau_max, n_points)
+    K = _compute_form_factor_numba(spectrum, tau_grid)
+    if normalize and K[0] > 0:
+        K = K / K[0]
+    return tau_grid, K
+
+
+def identify_regimes(
+    tau: np.ndarray,
+    K: np.ndarray,
+    N: int,
+) -> dict:
+    dip_end = np.searchsorted(tau, 1.0)
+    ramp_end = np.searchsorted(tau, N / 2)
+    return {
+        "dip_range": (0, dip_end),
+        "ramp_range": (dip_end, ramp_end),
+        "plateau_range": (ramp_end, len(tau)),
+    }
+
+
+def extract_ramp_slope(
+    tau: np.ndarray,
+    K: np.ndarray,
+    N: int,
+) -> float:
+    regimes = identify_regimes(tau, K, N)
+    ramp_start, ramp_end = regimes["ramp_range"]
+    tau_ramp = tau[ramp_start:ramp_end]
+    K_ramp = K[ramp_start:ramp_end]
+    mask = (tau_ramp > 0) & (K_ramp > 0)
+    tau_ramp = tau_ramp[mask]
+    K_ramp = K_ramp[mask]
+    if len(tau_ramp) < 2:
+        return 0.0
+    log_tau = np.log(tau_ramp)
+    log_K = np.log(K_ramp)
+    slope, _ = np.polyfit(log_tau, log_K, 1)
+    return float(slope)
+
+
+def compare_with_theory(
+    spectrum: np.ndarray,
+    ensemble: str = "GUE",
+    tau_max: float = 20.0,
+) -> dict:
+    N = len(spectrum)
+    tau, K_emp = spectral_form_factor(spectrum, tau_max=tau_max)
+    if ensemble.lower() == "poisson":
+        K_theory = form_factor_poisson(tau, N)
+    elif ensemble.lower() == "gue":
+        K_theory = form_factor_gue_analytical(tau, N)
+    else:
+        raise ValueError(f"Ensemble '{ensemble}' not supported")
+    slope = extract_ramp_slope(tau, K_emp, N)
+    return {
+        "tau": tau,
+        "K_empirical": K_emp,
+        "K_theory": K_theory,
+        "ramp_slope": slope,
+        "ensemble": ensemble,
+    }
+
+
 # ============================================================================
 # AUTO-TEST
 # ============================================================================
@@ -324,7 +475,7 @@ if __name__ == "__main__":
     # Test 2: K(t) teórico GUE en t=0 y t=2
     print("\n[TEST 2] K(t) teórico GUE")
     t = np.array([0.0, 0.5, 1.0, 2.0])
-    K = spectral_form_factor_teorico(t, "GUE")
+    K = spectral_form_factor_mehta_teorico(t, "GUE")
     print(f"  K(0) = {K[0]:.4f}  (esperado 0.0)")
     print(f"  K(0.5) = {K[1]:.4f}  (esperado 0.5)")
     print(f"  K(1.0) = {K[2]:.4f}  (esperado 1.0)")

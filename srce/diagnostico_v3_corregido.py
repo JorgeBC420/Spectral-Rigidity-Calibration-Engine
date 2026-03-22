@@ -31,14 +31,48 @@ sys.path.insert(0, 'src')
 from riemann_spectral.analysis.unfolding import unfolding_wigner_gue
 from riemann_spectral.engine.ensemble_classifier import (
     EnsembleClassifier,
-    PENDIENTE_GUE,
-    PENDIENTE_GOE,
+    PENDIENTE_GUE_ASINTOTICO,
+    PENDIENTE_GOE_ASINTOTICO,
+    PENDIENTE_GUE_REFERENCIA,
+    PENDIENTE_GOE_REFERENCIA,
 )
 
-# Constantes teóricas
+# Constantes de referencia (r-parameter, literatura)
 R_PARAM_POISSON = 0.386
 R_PARAM_GOE = 0.5359
 R_PARAM_GUE = 0.6027
+
+
+def _str_desviacion_srce(res) -> str:
+    """Texto para logs cuando el clasificador usa métrica GUE/GOE (None si Poisson, etc.)."""
+    if res.error_relativo is None:
+        return "n/a (clasificación no GUE/GOE por log L)"
+    return f"{100 * res.error_relativo:.1f}%"
+
+
+def _curvas_referencia_delta3(
+    L_obs: np.ndarray,
+    d3_obs: np.ndarray,
+    mask: np.ndarray,
+    alpha_asint: float,
+    alpha_srce: float,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Dos rectas Δ₃ ≈ α log L + b con pendientes distintas, ancladas al centroide
+    (log L, Δ₃) de los datos para comparar visualmente asintótico vs SRCE.
+    """
+    Lm = L_obs[mask]
+    d3m = d3_obs[mask]
+    logL = np.log(Lm)
+    c_log = float(np.mean(logL))
+    c_d3 = float(np.mean(d3m))
+    Lt = np.linspace(float(Lm.min()), float(Lm.max()), 100)
+    b_asint = c_d3 - alpha_asint * c_log
+    b_srce = c_d3 - alpha_srce * c_log
+    d3_asint = alpha_asint * np.log(Lt) + b_asint
+    d3_srce = alpha_srce * np.log(Lt) + b_srce
+    return Lt, d3_asint, d3_srce
+
 
 # ============================================================================
 # FUNCIÓN DE NORMALIZACIÓN (INTEGRADA AL PIPELINE)
@@ -200,8 +234,9 @@ print("-" * 80)
 res_gue = clf.clasificar(gue_unfolded, label="GUE")
 print(f"  Clasificado como     : {res_gue.ensemble}")
 print(f"  Pendiente observada  : {res_gue.pendiente_obs:.6f}")
-print(f"  Pendiente teórica    : {PENDIENTE_GUE:.6f}")
-print(f"  Error relativo       : {100 * res_gue.error_relativo:.1f}%")
+print(f"  Ref. operativa SRCE   : {PENDIENTE_GUE_REFERENCIA:.6f}  (usa el clasificador)")
+print(f"  Coef. asint. Mehta   : {PENDIENTE_GUE_ASINTOTICO:.6f}  (L→∞, no es umbral de éxito)")
+print(f"  Desviación vs ref. SRCE: {_str_desviacion_srce(res_gue)}")
 print(f"  R² log               : {res_gue.R2_log:.4f}")
 
 print("\n[GOE]")
@@ -209,14 +244,15 @@ print("-" * 80)
 res_goe = clf.clasificar(goe_unfolded, label="GOE")
 print(f"  Clasificado como     : {res_goe.ensemble}")
 print(f"  Pendiente observada  : {res_goe.pendiente_obs:.6f}")
-print(f"  Pendiente teórica    : {PENDIENTE_GOE:.6f}")
-print(f"  Error relativo       : {100 * res_goe.error_relativo:.1f}%")
+print(f"  Ref. operativa SRCE   : {PENDIENTE_GOE_REFERENCIA:.6f}  (usa el clasificador)")
+print(f"  Coef. asint. Mehta   : {PENDIENTE_GOE_ASINTOTICO:.6f}  (L→∞, no es umbral de éxito)")
+print(f"  Desviación vs ref. SRCE: {_str_desviacion_srce(res_goe)}")
 print(f"  R² log               : {res_goe.R2_log:.4f}")
 
 ratio = res_goe.pendiente_obs / res_gue.pendiente_obs
 print("\n[Ratio GOE/GUE]")
 print(f"  Observado: {ratio:.4f}")
-print(f"  Teórico  : 0.5000")
+print(f"  Esperado : 0.5000 (jerarquía GOE/GUE en asintótico y en ref. SRCE)")
 print(f"  Estado   : {'✓ OK' if abs(ratio - 0.5) < 0.15 else '✗ PROBLEMA'}")
 
 # ============================================================================
@@ -260,9 +296,11 @@ L_vals = res_gue.L_grid
 d3_vals = res_gue.d3_valores
 mask = np.isfinite(d3_vals)
 ax.plot(L_vals[mask], d3_vals[mask], 'bo-', label='Δ₃ observado', markersize=5)
-L_theory = np.linspace(L_vals[mask].min(), L_vals[mask].max(), 100)
-d3_theory = (1 / np.pi**2) * np.log(L_theory)
-ax.plot(L_theory, d3_theory, 'r--', linewidth=2, label='Teoría GUE')
+Lt, d3_asint, d3_srce = _curvas_referencia_delta3(
+    L_vals, d3_vals, mask, PENDIENTE_GUE_ASINTOTICO, PENDIENTE_GUE_REFERENCIA
+)
+ax.plot(Lt, d3_asint, color="darkred", linestyle="--", linewidth=2, label="Asint. Mehta (1/π²)·log L")
+ax.plot(Lt, d3_srce, color="tab:orange", linestyle=":", linewidth=2.5, label="Ref. SRCE clasificador (~0.05)·log L")
 ax.set_title(f'GUE: Δ₃(L) (pendiente={res_gue.pendiente_obs:.4f})', fontweight='bold')
 ax.set_xlabel('L')
 ax.set_ylabel('Δ₃(L)')
@@ -276,9 +314,11 @@ d3_vals = res_goe.d3_valores
 mask = np.isfinite(d3_vals)
 ax.plot(L_vals[mask], d3_vals[mask], 'go-', label='Δ₃ observado', markersize=5)
 # Recalcular L_theory para GOE
-L_theory_goe = np.linspace(L_vals[mask].min(), L_vals[mask].max(), 100)
-d3_theory = (1 / (2 * np.pi**2)) * np.log(L_theory_goe)
-ax.plot(L_theory_goe, d3_theory, 'r--', linewidth=2, label='Teoría GOE')
+Lt_g, d3_asint_g, d3_srce_g = _curvas_referencia_delta3(
+    L_vals, d3_vals, mask, PENDIENTE_GOE_ASINTOTICO, PENDIENTE_GOE_REFERENCIA
+)
+ax.plot(Lt_g, d3_asint_g, color="darkred", linestyle="--", linewidth=2, label="Asint. Mehta (1/2π²)·log L")
+ax.plot(Lt_g, d3_srce_g, color="tab:orange", linestyle=":", linewidth=2.5, label="Ref. SRCE clasificador (~0.025)·log L")
 ax.set_title(f'GOE: Δ₃(L) (pendiente={res_goe.pendiente_obs:.4f})', fontweight='bold')
 ax.set_xlabel('L')
 ax.set_ylabel('Δ₃(L)')
@@ -306,19 +346,20 @@ print(f"  GUE: {r_gue:.4f} (esperado: {R_PARAM_GUE:.4f})")
 print(f"  GOE: {r_goe:.4f} (esperado: {R_PARAM_GOE:.4f})")
 
 print("\n[Δ₃ pendientes]")
-print(f"  GUE: {res_gue.pendiente_obs:.6f} (esperado: {PENDIENTE_GUE:.6f})")
-print(f"       error = {100 * res_gue.error_relativo:.1f}%")
-print(f"  GOE: {res_goe.pendiente_obs:.6f} (esperado: {PENDIENTE_GOE:.6f})")
-print(f"       error = {100 * res_goe.error_relativo:.1f}%")
-print(f"  Ratio: {ratio:.4f} (esperado: 0.5000)")
+print(f"  GUE: {res_gue.pendiente_obs:.6f} (ref. operativa SRCE: {PENDIENTE_GUE_REFERENCIA:.6f})")
+print(f"       desviación vs ref. SRCE = {_str_desviacion_srce(res_gue)}")
+print(f"  GOE: {res_goe.pendiente_obs:.6f} (ref. operativa SRCE: {PENDIENTE_GOE_REFERENCIA:.6f})")
+print(f"       desviación vs ref. SRCE = {_str_desviacion_srce(res_goe)}")
+print(f"  Ratio: {ratio:.4f} (esperado ~0.5, asintótico y SRCE)")
 
 print("\n[Diagnóstico]")
-if res_gue.error_relativo < 0.20 and res_goe.error_relativo < 0.20:
+_eg, _eo = res_gue.error_relativo, res_goe.error_relativo
+if _eg is not None and _eo is not None and _eg < 0.20 and _eo < 0.20:
     print("  ✅ ÉXITO: Normalización corrigió el problema")
     print("  ✅ Ambos ensembles clasificados correctamente")
 else:
-    print("  ⚠️  Persisten desviaciones")
-    print(f"     Error GUE: {100 * res_gue.error_relativo:.1f}%")
-    print(f"     Error GOE: {100 * res_goe.error_relativo:.1f}%")
+    print("  ⚠️  Persisten desviaciones o clasificación no GUE/GOE")
+    print(f"     vs ref. SRCE GUE: {_str_desviacion_srce(res_gue)}")
+    print(f"     vs ref. SRCE GOE: {_str_desviacion_srce(res_goe)}")
 
 print("\n" + "="*80)

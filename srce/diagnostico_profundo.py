@@ -18,7 +18,12 @@ import sys
 sys.path.insert(0, 'src')
 
 from riemann_spectral.analysis.unfolding import unfolding_wigner_gue
-from riemann_spectral.engine.ensemble_classifier import EnsembleClassifier
+from riemann_spectral.analysis.rigidity import delta3_dyson_mehta
+from riemann_spectral.engine.ensemble_classifier import (
+    EnsembleClassifier,
+    PENDIENTE_GOE_ASINTOTICO,
+    PENDIENTE_GOE_REFERENCIA,
+)
 
 print("="*80)
 print("DIAGNÓSTICO PROFUNDO: DENSIDAD EN CADA ETAPA")
@@ -91,8 +96,6 @@ print(f"   {'✓ OK' if 0.95 < mean_s_bulk < 1.05 else '✗ PROBLEMA CRÍTICO'}"
 
 # Etapa 6: Probar Δ₃ directamente
 print("\n[7] Calculando Δ₃(L) para L=10,20,30,40,50...")
-from src.riemann_spectral.analysis.rigidity import delta3_dyson_mehta
-
 L_vals = [10, 20, 30, 40, 50]
 d3_vals = []
 
@@ -100,11 +103,13 @@ for L in L_vals:
     d3 = delta3_dyson_mehta(goe_unfolded, L)
     d3_vals.append(d3)
     
-    # Predicción teórica GOE
-    d3_teo_goe = (1 / (2 * np.pi**2)) * np.log(L)
-    error = abs(d3 - d3_teo_goe) / d3_teo_goe if d3_teo_goe > 0 else np.inf
+    d3_asint = PENDIENTE_GOE_ASINTOTICO * np.log(L)
+    error_asint = abs(d3 - d3_asint) / d3_asint if d3_asint > 0 else np.inf
     
-    print(f"   L={L:2d}  Δ₃={d3:.4f}  Teórico_GOE={d3_teo_goe:.4f}  Error={100*error:.1f}%")
+    print(
+        f"   L={L:2d}  Δ₃={d3:.4f}  (1/2π²)log L={d3_asint:.4f}  "
+        f"desv. vs asint.={100*error_asint:.1f}%"
+    )
 
 # Etapa 7: Ajuste de pendiente manual
 print("\n[8] Ajuste manual de pendiente log...")
@@ -116,9 +121,17 @@ p = np.polyfit(log_L, d3_array, 1)
 pendiente_manual = p[0]
 intercepto_manual = p[1]
 
-print(f"   Pendiente observada: {pendiente_manual:.6f}")
-print(f"   Pendiente teórica GOE: {1/(2*np.pi**2):.6f}")
-print(f"   Error: {100*abs(pendiente_manual - 1/(2*np.pi**2))/(1/(2*np.pi**2)):.1f}%")
+print(f"   Pendiente observada (OLS): {pendiente_manual:.6f}")
+print(f"   Coef. asintótico Mehta GOE (L→∞): {PENDIENTE_GOE_ASINTOTICO:.6f}")
+print(f"   Ref. operativa SRCE (clasificador): {PENDIENTE_GOE_REFERENCIA:.6f}")
+print(
+    f"   |Δ| vs ref. SRCE: "
+    f"{100*abs(pendiente_manual - PENDIENTE_GOE_REFERENCIA)/PENDIENTE_GOE_REFERENCIA:.1f}%"
+)
+print(
+    f"   |Δ| vs asint.: "
+    f"{100*abs(pendiente_manual - PENDIENTE_GOE_ASINTOTICO)/PENDIENTE_GOE_ASINTOTICO:.1f}%"
+)
 
 # Etapa 8: Verificar con el clasificador
 print("\n[9] Verificando con EnsembleClassifier...")

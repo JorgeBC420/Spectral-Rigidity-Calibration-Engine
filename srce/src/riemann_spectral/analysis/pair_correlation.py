@@ -284,6 +284,63 @@ def chi2_r2_vs_gue(
 
 
 # ============================================================================
+# VARIANTE g(r) MONTGOMERY–ODLYZKO (ZIP / Numba)
+# ============================================================================
+# Aliases de nomenclatura y histograma alternativo sin romper la API anterior.
+
+pair_correlation_gue = r2_teorica_gue
+pair_correlation_poisson = r2_teorica_poisson
+pair_correlation_goe = r2_teorica_goe
+
+try:
+    from numba import njit
+except ImportError:
+
+    def njit(*args, **kwargs):
+        def _wrap(f):
+            return f
+
+        return _wrap if not args else args[0]
+
+
+@njit
+def _compute_distances_numba(spectrum, r_max):
+    """Calcula distancias |E_i-E_j| con early exit (Numba)."""
+    N = len(spectrum)
+    distances = []
+    for i in range(N):
+        for j in range(i + 1, N):
+            d = spectrum[j] - spectrum[i]
+            if d > r_max:
+                break
+            distances.append(d)
+    return np.array(distances)
+
+
+def pair_correlation_histogram_numba(
+    spectrum: np.ndarray,
+    r_max: float = 10.0,
+    n_bins: int = 200,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Histograma de g(r) con normalización de cola (variante del paquete zip).
+
+    No reemplaza a ``pair_correlation`` / ``pair_correlation_fast`` (API SRCE).
+    """
+    spectrum = np.sort(np.asarray(spectrum, dtype=np.float64))
+    distances = _compute_distances_numba(spectrum, r_max)
+    hist, bin_edges = np.histogram(distances, bins=n_bins, range=(0, r_max))
+    r = (bin_edges[:-1] + bin_edges[1:]) / 2
+    bin_width = bin_edges[1] - bin_edges[0]
+    total_pairs = len(spectrum) * (len(spectrum) - 1) / 2
+    g = hist / (total_pairs * bin_width)
+    tail_mean = np.mean(g[n_bins // 2 :])
+    if tail_mean > 0:
+        g = g / tail_mean
+    return r, g
+
+
+# ============================================================================
 # AUTO-TEST
 # ============================================================================
 

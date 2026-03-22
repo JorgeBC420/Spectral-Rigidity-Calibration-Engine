@@ -30,22 +30,24 @@ from ..analysis.rigidity import (
 
 def _generar_gue(N: int, rng: np.random.Generator) -> np.ndarray:
     """
-    GUE via Generator. H = (A + A†) / (2√N), A_ij complejo i.i.d. N(0,1).
-    Autovalores en semicírculo de Wigner, re-escalados a media=N/2, std=1.
+    GUE vía Generator. H = (A + A†) / (2√N), A_ij complejo i.i.d. N(0,1).
+
+    Los autovalores permanecen en la escala del semicírculo de Wigner (soporte
+    típico en el bulk ≈ [-2, 2]) para ser compatibles con unfolding_wigner_gue.
+    No se centran, no se escalan por desviación típica ni se desplazan +N/2.
     """
-    A  = rng.standard_normal((N, N)) + 1j * rng.standard_normal((N, N))
-    H  = (A + A.conj().T) / (2 * np.sqrt(N))
-    ev = la.eigvalsh(H)
-    media = np.mean(ev)
-    desv  = np.std(ev)
-    if desv < 1e-10:
-        desv = 1.0
-    return np.sort((ev - media) / desv + N / 2)
+    A = rng.standard_normal((N, N)) + 1j * rng.standard_normal((N, N))
+    H = (A + A.conj().T) / (2 * np.sqrt(N))
+    return np.sort(la.eigvalsh(H))
 
 
 def _generar_poisson(N: int, rng: np.random.Generator) -> np.ndarray:
-    """Poisson uniforme en [0, N]. Espaciado medio ≈ 1 → densidad ≈ 1."""
-    return np.sort(rng.uniform(0.0, float(N), N))
+    """
+    Proceso de Poisson de intensidad 1: espaciados s_i ~ Exp(1), posiciones
+    x_n = sum_i s_i. Espaciado medio 1 → densidad local ≈ 1 en la recta.
+    """
+    spacings = rng.exponential(scale=1.0, size=N)
+    return np.cumsum(spacings)
 
 
 # ── Helpers de unfolding por tipo de ensemble ────────────────────────────────
@@ -65,7 +67,7 @@ def _unfold_gue(gamma: np.ndarray) -> np.ndarray:
 
 
 def _unfold_poisson(gamma: np.ndarray) -> np.ndarray:
-    """Poisson en [0,N]: densidad ≈ 1 por construcción, sin transformación."""
+    """Poisson (cumsum Exp(1)): densidad media 1; sin transformación adicional."""
     if not np.all(np.isfinite(gamma)):
         return np.empty(0)
     return gamma
@@ -132,7 +134,7 @@ class BaselineFactory:
 
     Unfolding por ensemble:
         GUE     → unfolding_wigner_gue() + tercio central
-        Poisson → sin transformar (densidad ≈ 1 por construcción)
+        Poisson → sin transformar (proceso Exp(1); densidad media ≈ 1)
         Riemann → unfolding_riemann() [aplicado en ZScoreEngine, no aquí]
 
     Args:
@@ -174,7 +176,7 @@ class BaselineFactory:
         return [_generar_gue(N_gue, rng) for rng in self._make_rngs(realizaciones)]
 
     def _sample_poisson(self, N: int, realizaciones: int) -> List[np.ndarray]:
-        """Genera `realizaciones` espectros Poisson de N puntos en [0, N]."""
+        """Genera `realizaciones` trayectorias Poisson (N espaciados Exp(1) → N niveles)."""
         return [_generar_poisson(N, rng) for rng in self._make_rngs(realizaciones)]
 
     # ── Baselines públicos ────────────────────────────────────────────────────

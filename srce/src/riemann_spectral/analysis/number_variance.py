@@ -35,18 +35,20 @@ def sigma2_number_variance_fast(
     """
     Cálculo rápido de la varianza del número Σ²(L) usando búsqueda binaria.
 
-    Σ²(L) mide las fluctuaciones del número de niveles dentro de ventanas
-    de longitud L:
+    Σ²(L) mide las fluctuaciones del número de niveles en ventanas de longitud L.
+
+    Estimador SRCE (espectro finito, ventanas deslizantes):
     
-        Σ²(L) = ⟨(N(L) - L)²⟩
+        Σ²(L) = ⟨(N(L) - ⟨N(L)⟩)²⟩
     
-    donde N(L) es el número de niveles en una ventana de longitud L.
+    sobre las ventanas válidas, donde N(L) es el recuento en [x, x+L].
+    La forma ⟨(N(L)-L)²⟩ solo coincide con la definición teórica estándar en el
+    límite continuo cuando ⟨N(L)⟩ ≈ L (ver Mehta / Forrester).
 
     Algoritmo:
-        1. Para cada punto del espectro, usa np.searchsorted para encontrar
-           el extremo derecho de la ventana [x, x+L].
-        2. Cuenta niveles: N(L) = índice_derecho - índice_izquierdo.
-        3. Calcula varianza: Σ² = mean((N(L) - L)²).
+        1. Para cada x, extremo derecho de [x, x+L] vía ``searchsorted``.
+        2. N(L) = índice_derecho − índice_izquierdo.
+        3. Σ² = mean((N(L) − mean(N(L)))²) sobre ventanas válidas.
 
     Complejidad: O(N log N) por cada L, donde N = len(spectrum).
 
@@ -108,8 +110,8 @@ def sigma2_number_variance_fast(
 
         n_L = counts[valid_mask]
 
-        # Definición de Σ²(L)
-        sigma2_vals[i] = np.mean((n_L - L) ** 2)
+        mean_N = np.mean(n_L)
+        sigma2_vals[i] = np.mean((n_L - mean_N) ** 2)
 
     return sigma2_vals
 

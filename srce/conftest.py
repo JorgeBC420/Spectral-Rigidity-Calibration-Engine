@@ -62,7 +62,7 @@ def poisson_unfolded():
 @pytest.fixture(scope="session")
 def gue_unfolded():
     """
-    GUE N=1200 → unfolding Wigner → tercio central → normalize_spacing.
+    GUE N grande → unfolding Wigner → tercio central → normalize_spacing.
 
     Normalización: H = (A + A†) / (2*sqrt(N))
     Produce radio del semicírculo ≈ 2.0, compatible con unfolding_wigner_gue
@@ -70,7 +70,7 @@ def gue_unfolded():
     Resultado: <s> ≈ 1.0 después del unfolding (verificado empíricamente).
     """
     rng = np.random.default_rng(seed=99)
-    N   = 1200
+    N   = 2000
     A   = rng.standard_normal((N, N)) + 1j * rng.standard_normal((N, N))
     H   = (A + A.conj().T) / (2 * np.sqrt(N))
     ev  = np.sort(la.eigvalsh(H))
@@ -84,13 +84,13 @@ def gue_unfolded():
 @pytest.fixture(scope="session")
 def goe_unfolded():
     """
-    GOE N=1200 → unfolding Wigner → tercio central → normalize_spacing.
+    GOE N grande → unfolding Wigner → tercio central → normalize_spacing.
 
     Normalización: H = (A + A.T) / (2*sqrt(N))
     Misma lógica que GUE: radio ≈ 2.0, compatible con unfolding_wigner_gue.
     """
     rng = np.random.default_rng(seed=7)
-    N   = 1200
+    N   = 2000
     A   = rng.standard_normal((N, N))
     H   = (A + A.T) / (2 * np.sqrt(N))
     ev  = np.sort(la.eigvalsh(H))

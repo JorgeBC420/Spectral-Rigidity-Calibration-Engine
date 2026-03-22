@@ -38,6 +38,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from typing import Tuple
 
 import numpy as np
 from scipy.linalg import eigvalsh_tridiagonal
@@ -225,32 +226,31 @@ def ajustar_pendiente(L_values: np.ndarray, d3_mean: np.ndarray) -> Tuple:
 # 5. VALIDACIÓN DE LA DENSIDAD ESPECTRAL
 # ══════════════════════════════════════════════════════════════════════════════
 
-def validar_semicircle(todos_evals: np.ndarray, n_bins: int = 200) -> Tuple:
+def validar_semicircle(todos_evals: np.ndarray, n_bins: int = 200) -> Tuple[float, float]:
     """
-    Compara el histograma empírico con la densidad teórica del semicírculo.
-
-    Returns:
-        (l2_error, ks_distance) — ambos deben ser pequeños.
+    Compara el histograma empírico con ρ_Wigner (L²) y la CDF empírica con
+    la CDF teórica del semicírculo (KS en una malla en [-2, 2]).
     """
     hist, edges = np.histogram(todos_evals, bins=n_bins, density=True)
     centers = 0.5 * (edges[:-1] + edges[1:])
     rho_teo = semicircle_density(centers)
 
-    l2_error    = float(np.sqrt(np.mean((hist - rho_teo) ** 2)))
-    # KS: máxima diferencia entre CDFs
-    ks_distance = float(np.max(np.abs(
-        np.cumsum(hist) / np.sum(hist)
-        - np.cumsum(rho_teo) / np.sum(rho_teo)
-    )))
+    l2_error = float(np.sqrt(np.mean((hist - rho_teo) ** 2)))
+
+    x_sorted = np.sort(np.asarray(todos_evals, dtype=np.float64))
+    n = len(x_sorted)
+    if n == 0:
+        return l2_error, float("nan")
+    x_grid = np.linspace(-2.0, 2.0, 500)
+    F_emp = np.searchsorted(x_sorted, x_grid, side="right") / n
+    F_theo = semicircle_cdf(x_grid)
+    ks_distance = float(np.max(np.abs(F_emp - F_theo)))
     return l2_error, ks_distance
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 6. BENCHMARK PRINCIPAL
 # ══════════════════════════════════════════════════════════════════════════════
-
-# Necesitamos Tuple en Python 3.8
-from typing import Tuple  # noqa: E402 (import fuera de orden deliberado)
 
 
 def run_benchmark(

@@ -2,6 +2,12 @@
 """
 Z-Score Engine: detección de anomalías comparando datos reales contra baselines.
 
+Los z-scores se calculan frente a **distribuciones empíricas** generadas con el
+mismo protocolo que el núcleo SRCE (GUE/Poisson vía BaselineFactory), no frente
+a idealizaciones asintóticas inalcanzables a N finito (p. ej. N≈2000). Eso hace
+la detección **más sensible** a desviaciones “reales” en laboratorio numérico.
+Véase THEORY.md (jerarquía de detección y ventanas finitas).
+
 v1.2 — Endurecimiento estadístico:
     evaluar() ahora devuelve, además de z-scores:
         p_gue, p_poisson    : p-valor empírico de dos colas (no paramétrico).
@@ -76,6 +82,10 @@ class ZScoreEngine:
     """
     Compara métricas de un espectro real (ceros de Riemann) contra baselines
     GUE/Poisson generados por BaselineFactory.
+
+    Los baselines reflejan **comportamiento numérico** bajo el mismo unfolding
+    y tamaños típicos; las desviaciones se miden respecto a esa cohorte, no
+    respecto a fórmulas cerradas solo válidas en L→∞ (véase THEORY.md).
 
     Calcula Z-scores, p-valores empíricos, intervalos de confianza y etiquetas.
 
@@ -194,7 +204,10 @@ class ZScoreEngine:
 
             z_gue     = self._z_score(valor, mean_gue, std_gue)
             z_poisson = self._z_score(valor, mean_poi, std_poi)
-            anomalia  = abs(z_gue) >= self.sigma_umbral or abs(z_poisson) >= self.sigma_umbral
+            # Anomalía respecto al baseline de referencia GUE. Un |z_poisson| alto
+            # solo indica desviación frente a Poisson (esperado para datos GUE-like),
+            # no un fallo del modelo GUE de comparación.
+            anomalia  = abs(z_gue) >= self.sigma_umbral
 
             p_gue = _p_valor_dos_colas(valor, gue_vals)
             p_poi = _p_valor_dos_colas(valor, poi_vals)
