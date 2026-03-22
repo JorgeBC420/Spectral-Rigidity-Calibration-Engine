@@ -26,17 +26,17 @@ def normalize_spacing(spectrum: np.ndarray) -> np.ndarray:
     usen la escala correcta.
     
     Fórmula:
-        unfolded = (spectrum - spectrum[0]) / ⟨s⟩
+        unfolded = spectrum / ⟨s⟩
     
-    donde ⟨s⟩ = mean(diff(spectrum))
+    donde ⟨s⟩ = mean(diff(spectrum)). Solo se escala; no se resta el origen
+    (``diff`` es idéntico a la versión con ``(spectrum - spectrum[0])/⟨s⟩``,
+    pero evita anclar arbitrariamente el primer nivel en 0).
     
     Args:
         spectrum: Eigenvalues ordenados (puede estar en cualquier escala).
     
     Returns:
-        Espectro normalizado con:
-        - Primer punto en 0
-        - Spacing medio = 1
+        Espectro en unidades de spacing medio, con ⟨s⟩ = 1 (``mean(diff)``).
     
     Example:
         >>> raw_evals = np.sort(np.random.randn(1000))
@@ -65,8 +65,8 @@ def normalize_spacing(spectrum: np.ndarray) -> np.ndarray:
             "Spacing medio ≈ 0. El espectro parece degenerado o mal ordenado."
         )
     
-    # Normalizar: shift a 0 y escalar por spacing medio
-    normalized = (spectrum - spectrum[0]) / s_mean
+    # Escalar por ⟨s⟩; sin restar spectrum[0] (evita sesgo de anclaje; los spacings coinciden)
+    normalized = spectrum / s_mean
     
     return normalized
 
