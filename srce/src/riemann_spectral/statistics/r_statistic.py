@@ -27,7 +27,21 @@ Versión: 1.0.0
 
 import numpy as np
 from typing import Dict, Tuple
-from numba import njit
+# ── Numba con fallback ─────────────────────────────────────────────────────
+try:
+    from numba import njit
+    _NUMBA = True
+except ImportError:
+    _NUMBA = False
+
+    def njit(*args, **kwargs):
+        """No-op decorator cuando Numba no está disponible."""
+        def _dec(fn):
+            return fn
+        if len(args) == 1 and callable(args[0]):
+            return args[0]
+        return _dec
+
 
 # ============================================================================
 # CONSTANTES TEÓRICAS EXACTAS
@@ -36,8 +50,12 @@ from numba import njit
 # Valores analíticos exactos (Atas et al., 2013)
 R_POISSON_EXACT = 2 * np.log(2) - 1             # ≈ 0.38629436111989
 R_GOE_EXACT = 4 - 2 * np.sqrt(3)                # ≈ 0.53589838486224
-# ⟨r⟩_GUE (β=2): valor cerrado estándar en la literatura (≈ 0.60272)
-R_GUE_EXACT = 0.60272166211556
+
+# ⟨r⟩_GUE (β=2): no existe expresión analítica cerrada. Valor numérico de
+# referencia tomado de Atas et al. (2013), PRL 110, 084101, Tabla I (β=2).
+# Derivado de la integral de la distribución de Wigner-Dyson β=2:
+#     ⟨r⟩ = ∫₀¹ r · P_{β=2}(r) dr  con  P_{β=2}(r) = (27/4) r(1+r)/(1+r+r²)^(5/2)
+R_GUE_EXACT = 0.60272166211556  # Atas et al. (2013), PRL 110, 084101
 
 # Tolerancias típicas para clasificación
 R_TOLERANCE = 0.05

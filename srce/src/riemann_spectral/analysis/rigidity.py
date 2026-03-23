@@ -2,10 +2,26 @@
 """
 Métricas de rigidez espectral: espaciado mínimo, varianza del número, Delta_3 (Dyson-Mehta).
 
-v2.0 — Optimizaciones (API pública idéntica):
+v2.1 — Refactor (API pública idéntica a v2.0):
+    _delta3_ventana:
+        - NUEVO núcleo @njit que calcula Delta_3 para UNA ventana dado x0, L y el
+          array de niveles. Opera sobre primitivos escalares → compatible con prange.
+        - Elimina la duplicación de lógica entre _delta3_recta y delta3_batch_parallel.
+          Antes ambas funciones contenían ~40 líneas idénticas de I1/I2/I3. Ahora
+          ambas delegan al mismo núcleo; un bugfix en _delta3_ventana se propaga
+          automáticamente a ambas rutas de ejecución.
+
     _delta3_recta:
+        - Ahora llama a _delta3_ventana por cada ventana.
+        - Sin cambios en la lógica de bulk (percentil 10-90) ni en n_windows.
+
+    delta3_batch_parallel:
+        - Llama a _delta3_ventana dentro del prange.
+        - Paralelismo Numba preservado (prange sobre realizaciones, range sobre L).
+
+    Sin cambios en v2.0:
         - Bulk percentil 10-90 (evita efectos de borde del semicírculo de Wigner)
-        - n_windows equiespaciadas (default 100) vs N ventanas de la v1.0
+        - n_windows equiespaciadas (default 100)
         - Early-exit en scan interno (espectro ordenado → break al pasar x1)
         - Sin np.sort() interno: los niveles ya están ordenados → O(M) una pasada
         - sum_jx acumulado con índice running: same loop, cero overhead
@@ -28,7 +44,7 @@ v2.0 — Optimizaciones (API pública idéntica):
 
     Complejidad:
         v1.0: O(N^2) — N ventanas × scan O(N) sin early-exit + sort O(M log M)
-        v2.0: O(n_windows × M_avg) — M_avg ≈ L para densidad ≈ 1
+        v2.0/v2.1: O(n_windows × M_avg) — M_avg ≈ L para densidad ≈ 1
         Para L=30, n_windows=100, N=8000: ~3000 ops vs ~64 millones → ~21000x speedup
 """
 
@@ -115,19 +131,96 @@ def varianza_numero(gamma_unfolded: np.ndarray, L: float) -> float:
     return varianza_numero_impl(gamma_unfolded, L)
 
 
-# ── Delta_3: núcleo v2.0 ─────────────────────────────────────────────────────
+# ── Núcleo Delta_3: UNA ventana ───────────────────────────────────────────────
+#
+# Separado de _delta3_recta para eliminar la duplicación con delta3_batch_parallel.
+# Recibe primitivos escalares (x0, L, L2, L3) y una vista del array de niveles
+# con índices [s, e). Esto es lo que Numba puede inlinear dentro de prange sin
+# penalización de rendimiento.
+
+@njit(fastmath=False)
+def _delta3_ventana(
+    y:   np.ndarray,
+    s:   int,
+    e:   int,
+    x0:  float,
+    L:   float,
+    L2:  float,
+    L3:  float,
+) -> Tuple[float, int]:
+    """
+    Calcula Delta_3 de Mehta para UNA ventana [x0, x0+L] dentro del rango [s, e).
+
+    Args:
+        y  : espectro ordenado completo (densidad ≈ 1).
+        s  : índice inicial del bulk (percentil 10).
+        e  : índice final del bulk (percentil 90).
+        x0 : origen de la ventana.
+        L  : longitud de la ventana.
+        L2 : L².
+        L3 : L³.
+
+    Returns:
+        (val, 1) si M ≥ 2 niveles en la ventana, (0.0, 0) si insuficientes.
+        El segundo elemento es el contador para que el caller pueda acumular
+        correctamente sin condicionales adicionales.
+    """
+    x1 = x0 + L
+
+    # Avanzar al primer nivel >= x0
+    i = s
+    while i < e and y[i] < x0:
+        i += 1
+
+    # Acumular I1, I2, I3 en una pasada O(M) — sin sort
+    m0 = 0
+    sx = 0.0
+    sx2 = 0.0
+    sjx = 0.0
+    j = i
+    while j < e and y[j] <= x1:
+        t    = y[j] - x0
+        m0  += 1
+        sx  += t
+        sx2 += t * t
+        sjx += (2 * m0 - 1) * t   # sum (2j-1)*t_j, j 1-indexed
+        j   += 1
+
+    if m0 < 2:
+        return 0.0, 0
+
+    I1  = m0 * L  - sx
+    I2  = 0.5 * (m0 * L2 - sx2)
+    I3  = m0 * m0 * L - sjx
+    B   = 12.0 * I2 / L3 - 6.0 * I1 / L2
+    A   = (I1 - B * L2 * 0.5) / L
+    val = (
+        I3
+        - 2.0 * A * I1
+        - 2.0 * B * I2
+        + A * A * L
+        + A * B * L2
+        + B * B * L3 / 3.0
+    ) / L
+
+    # val puede ser ligeramente negativo por discretización numérica;
+    # incluirlo evita sesgo positivo en el promedio sobre ventanas.
+    return val, 1
+
+
+# ── Delta_3: función de alto nivel (una realización) ─────────────────────────
 
 @njit(fastmath=False)
 def _delta3_recta(y: np.ndarray, L: float, n_windows: int = 100) -> float:
     """
     Delta_3(L) promediado sobre n_windows ventanas equiespaciadas en el bulk.
 
-    Implementa la fórmula exacta I1/I2/I3 de Mehta con:
-        1. Bulk = percentil 10-90 del espectro
-        2. n_windows equiespaciadas (no N ventanas)
-        3. Early-exit al salir de la ventana (espectro ordenado)
-        4. Sin sort interno — los niveles ya están en orden
-        5. I3 acumulado con índice running en la misma pasada
+    Delega el cálculo por ventana a _delta3_ventana (núcleo compartido con
+    delta3_batch_parallel).
+
+    Parámetros de bulk:
+        - Percentil 10-90 del espectro (evita efectos de borde del semicírculo).
+        - n_windows ventanas equiespaciadas entre [x_min, x_max - L].
     """
     n = len(y)
     if n < 2 or L <= 0.0:
@@ -143,53 +236,17 @@ def _delta3_recta(y: np.ndarray, L: float, n_windows: int = 100) -> float:
     if x_max <= x_min:
         return 0.0
 
-    nw   = n_windows if n_windows > 0 else min(200, max(50, (e - s) // 5))
-    L2   = L * L
-    L3   = L2 * L
+    nw = n_windows if n_windows > 0 else min(200, max(50, (e - s) // 5))
+    L2 = L * L
+    L3 = L2 * L
     acum = 0.0
     cnt  = 0
 
     for w in range(nw):
         x0 = x_min + (x_max - x_min) * w / nw
-        x1 = x0 + L
-
-        # Avanzar al primer nivel >= x0
-        i = s
-        while i < e and y[i] < x0:
-            i += 1
-
-        # Acumular I1, I2, I3 en una pasada O(M) — sin sort
-        m0, sx, sx2, sjx = 0, 0.0, 0.0, 0.0
-        j = i
-        while j < e and y[j] <= x1:
-            t = y[j] - x0
-            m0  += 1
-            sx  += t
-            sx2 += t * t
-            sjx += (2 * m0 - 1) * t   # sum (2j-1)*t_j, j 1-indexed
-            j   += 1
-
-        if m0 < 2:
-            continue
-
-        I1  = m0 * L  - sx
-        I2  = 0.5 * (m0 * L2 - sx2)
-        I3  = m0 * m0 * L - sjx
-        B   = 12.0 * I2 / L3 - 6.0 * I1 / L2
-        A   = (I1 - B * L2 * 0.5) / L
-        val = (
-            I3
-            - 2.0 * A * I1
-            - 2.0 * B * I2
-            + A * A * L
-            + A * B * L2
-            + B * B * L3 / 3.0
-        ) / L
-
-        # Incluir todas las contribuciones (val puede ser < 0 por discretización);
-        # omitirlas introduce sesgo en el promedio sobre ventanas.
+        val, c = _delta3_ventana(y, s, e, x0, L, L2, L3)
         acum += val
-        cnt += 1
+        cnt  += c
 
     return acum / cnt if cnt > 0 else 0.0
 
@@ -198,10 +255,13 @@ def delta3_dyson_mehta(gamma_unfolded: np.ndarray, L: float) -> float:
     """
     Rigidez espectral de Dyson-Mehta Delta_3(L).
 
-    Valores de referencia:
-        GUE    : Delta_3(L) ~ (1/pi^2) * log(L)    [pendiente ≈ 0.1013]
-        GOE    : Delta_3(L) ~ (1/2pi^2) * log(L)   [pendiente ≈ 0.0507]
-        Poisson: Delta_3(L) = L / 15               [exacto]
+    Valores de referencia asintóticos (Mehta, L → ∞):
+        GUE    : Delta_3(L) ~ (1/π²) · log(L)    [pendiente ≈ 0.1013]
+        GOE    : Delta_3(L) ~ (1/2π²) · log(L)   [pendiente ≈ 0.0507]
+        Poisson: Delta_3(L) = L / 15              [exacto]
+
+    En ventanas finitas L ∈ [5, 50] las pendientes efectivas son menores;
+    ver ensemble_classifier.py y THEORY.md para las referencias operativas SRCE.
 
     Args:
         gamma_unfolded: espectro unfolded ordenado, densidad ≈ 1.
@@ -229,12 +289,14 @@ if _NUMBA:
     ) -> np.ndarray:
         """
         Delta_3 para múltiples espectros y L en paralelo (prange Numba).
-        Requiere Numba. Usa todos los núcleos del CPU.
+
+        Usa el mismo núcleo _delta3_ventana que _delta3_recta — no hay
+        duplicación de lógica.  Requiere Numba; usa todos los núcleos del CPU.
 
         Args:
             espectros : 2D (n_real, N_points), cada fila ordenada con densidad ≈ 1.
             L_values  : 1D array de ventanas L.
-            n_windows : ventanas por (realización, L).
+            n_windows : número de ventanas por (realización, L).
 
         Returns:
             2D (n_real, n_L).
@@ -257,31 +319,17 @@ if _NUMBA:
                 x_mx = y[e - 1] - L
                 if x_mx <= x_mn:
                     continue
-                L2, L3 = L * L, L * L * L
-                nw     = n_windows if n_windows > 0 else min(200, max(50, (e - s) // 5))
-                acum, cnt = 0.0, 0
+                L2   = L * L
+                L3   = L2 * L
+                nw   = n_windows if n_windows > 0 else min(200, max(50, (e - s) // 5))
+                acum = 0.0
+                cnt  = 0
 
                 for w in range(nw):
                     x0 = x_mn + (x_mx - x_mn) * w / nw
-                    x1 = x0 + L
-                    i  = s
-                    while i < e and y[i] < x0:
-                        i += 1
-                    m0, sx, sx2, sjx = 0, 0.0, 0.0, 0.0
-                    j = i
-                    while j < e and y[j] <= x1:
-                        t = y[j] - x0; m0 += 1; sx += t; sx2 += t * t
-                        sjx += (2 * m0 - 1) * t; j += 1
-                    if m0 < 2:
-                        continue
-                    I1  = m0 * L - sx
-                    I2  = 0.5 * (m0 * L2 - sx2)
-                    I3  = m0 * m0 * L - sjx
-                    B   = 12.0 * I2 / L3 - 6.0 * I1 / L2
-                    A   = (I1 - B * L2 * 0.5) / L
-                    val = (I3 - 2*A*I1 - 2*B*I2 + A*A*L + A*B*L2 + B*B*L3/3) / L
+                    val, c = _delta3_ventana(y, s, e, x0, L, L2, L3)
                     acum += val
-                    cnt += 1
+                    cnt  += c
 
                 resultados[r, k] = acum / cnt if cnt > 0 else 0.0
 
@@ -303,7 +351,7 @@ else:
         return out
 
 
-# ── Análisis de espaciado mínimo (sin cambios) ────────────────────────────────
+# ── Análisis de espaciado mínimo ──────────────────────────────────────────────
 
 @njit(fastmath=True)
 def ecuacion_espaciado_minimo_correcta(

@@ -11,13 +11,26 @@ por una distancia s — para TODOS los pares, no solo vecinos.
 Fórmula teórica GUE (Montgomery 1973, Dyson 1962):
     R₂(s) = 1 - (sin(πs) / (πs))²
 
+Fórmula teórica GOE (Mehta, Random Matrices, Cap. 6):
+    R₂(s) = 1 - sinc²(πs) + sinc'(πs) · ∫_s^∞ sinc(πt) dt
+
+    donde sinc'(πs) es la derivada respecto a s de sin(πs)/(πs).
+    Esta integral se evalúa numéricamente con scipy.integrate.quad.
+
 Predicciones por ensemble:
     Poisson : R₂(s) = 1                    (sin correlaciones)
-    GUE     : R₂(s) = 1 - (sin(πs)/πs)²
-    GOE     : R₂(s) = 1 - (sin(πs)/πs)² + ... (corrección adicional)
+    GUE     : R₂(s) = 1 - (sin(πs)/πs)²   (repulsión cuadrática)
+    GOE     : R₂(s) = fórmula completa Mehta (ver arriba)
 
 Esta es la estadística que Hugh Montgomery conjeturó en 1973 y que
 Freeman Dyson reconoció como la fórmula GUE exacta.
+
+Nota sobre normalización en pair_correlation_fast:
+    La función normaliza R₂ por la media de la cola (s > 0.7·s_max).
+    Para que la cola sea representativa de la región sin correlaciones,
+    usar s_max ≥ 5.0. Con s_max < 3 la "cola" puede estar dentro de la
+    región con correlaciones fuertes de GUE (s ≈ 1–2), produciendo una
+    normalización errónea.
 
 Referencias:
     Montgomery, H.L. (1973). The pair correlation of zeros of the zeta function.
@@ -25,11 +38,19 @@ Referencias:
     Odlyzko, A.M. (1987). Mathematics of Computation 48(177), 273–308.
 
 Autor: Jorge BC & Claude
-Versión: 1.0.0
+Versión: 1.1.0
 """
 
 import numpy as np
+from functools import lru_cache
 from typing import Tuple, Optional
+
+# scipy para la integral exacta de GOE (opcional con fallback)
+try:
+    from scipy.integrate import quad as _quad
+    _SCIPY = True
+except ImportError:
+    _SCIPY = False
 
 
 # ============================================================================
@@ -60,33 +81,120 @@ def r2_teorica_gue(s: np.ndarray) -> np.ndarray:
     return 1.0 - sinc_vals ** 2
 
 
+@lru_cache(maxsize=512)
+def _sinc_integral(s_val: float) -> float:
+    """
+    Evalúa ∫_s^∞ sin(πt)/(πt) dt numéricamente con caché LRU.
+
+    Equivalente a (1/2 - Si(πs)/π) donde Si es la función seno integral.
+    El resultado se cachea por valor exacto de s_val — las llamadas repetidas
+    con la misma grilla (p.ej. np.linspace fijo entre plots o validaciones)
+    reutilizan el resultado sin reejecutar quad.
+
+    El caché es efectivo porque:
+        - r2_teorica_goe típicamente se llama con arrays fijos (grillas de bins).
+        - float(np.linspace(...)[i]) es reproducible entre llamadas.
+        - maxsize=512 cubre grillas de hasta 512 puntos sin evictions.
+
+    Tolerancias: epsabs=1e-8 y epsrel=1e-8 son suficientes para s ≥ 0.
+    Para s pequeño (s < 0.5) la integral ≈ 0.5 − O(s²); quad converge
+    limpiamente con limit=100. Usar limit=200 o tolerancias más estrictas
+    no aporta para la precisión que necesita R₂(s).
+
+    Args:
+        s_val: Límite inferior de integración (s ≥ 0). Debe ser float puro,
+               no np.float64, para que lru_cache funcione — el caller hace
+               float(s[idx]) antes de llamar.
+
+    Returns:
+        Valor de ∫_s^∞ sinc(t) dt  (sinc normalizado: sin(πt)/(πt)).
+    """
+    if not _SCIPY:
+        # Fallback sin scipy: aproximación asintótica de primer orden
+        # ∫_s^∞ sinc(t) dt ≈ cos(πs)/(π²s)  para s >> 1  (integración por partes)
+        # Para s ≤ 3 el error es significativo — instalar scipy para precisión.
+        if s_val > 3.0:
+            return np.cos(np.pi * s_val) / (np.pi ** 2 * s_val)
+        return 0.0
+
+    integral, _ = _quad(
+        lambda t: np.sinc(t),   # np.sinc(t) = sin(πt)/(πt), sinc(0)=1
+        s_val,
+        np.inf,
+        limit=100,
+        epsabs=1e-8,
+        epsrel=1e-8,
+    )
+    return integral
+
+
 def r2_teorica_goe(s: np.ndarray) -> np.ndarray:
     """
-    Función de correlación de pares teórica del GOE.
+    Función de correlación de pares teórica del GOE (fórmula exacta).
 
-    R₂(s) = 1 - (sin(πs)/(πs))² + (d/ds)(sin(πs)/(πs)) * ∫_s^∞ sin(πt)/(πt) dt
+    Fórmula completa de Mehta (Random Matrices, Cap. 6, β=1):
 
-    En práctica se aproxima numéricamente. Para visualización,
-    la diferencia principal con GUE está en la cola para s > 1.
+        R₂(s) = 1 - sinc²(s) + sinc'(s) · ∫_s^∞ sinc(t) dt
+
+    donde:
+        sinc(s)  = sin(πs)/(πs)       [convención numpy: sinc normalizado]
+        sinc'(s) = d/ds [sin(πs)/(πs)] = [cos(πs)/s - sin(πs)/(πs²)] · π  (s≠0)
+        ∫_s^∞ sinc(t) dt              evaluado con scipy.integrate.quad
+
+    La integral se calcula numéricamente punto a punto. Para s > 5, la
+    contribución es despreciable (< 0.5%) y se trunca a 0.
+
+    Para s ≈ 0: sinc'(0) = 0 (función par), por lo que el término integral
+    no contribuye y R₂(0) = 0 (repulsión de niveles).
+
+    Diferencia GOE vs GUE: GOE tiene correlaciones de rango más corto.
+    La curva GOE está por ENCIMA de GUE para s ≳ 0.5 y converge a 1 más rápido.
+
+    Nota: si scipy no está instalado, se usa una aproximación de cola para s > 3
+    y 0 para s ≤ 3. Instalar scipy para resultados precisos.
 
     Args:
         s: Array de distancias (s ≥ 0).
 
     Returns:
-        R₂(s) aproximada para GOE.
+        R₂(s) exacta para GOE.
+
+    References:
+        Mehta, M.L. (2004). Random Matrices, 3rd ed., Eq. (6.2.7).
     """
     s = np.asarray(s, dtype=np.float64)
+    scalar_input = s.ndim == 0
+    s = np.atleast_1d(s)
+
+    # sinc(s) = sin(πs)/(πs)
     sinc_vals = np.sinc(s)
-    # Derivada de sinc: d/ds [sin(πs)/(πs)] = cos(πs)/s - sin(πs)/(πs²)  (s≠0)
-    # Para GOE se necesita el término integral; usamos aproximación práctica
-    # basada en la diferencia conocida GOE vs GUE para visualización
-    r2_gue = 1.0 - sinc_vals ** 2
-    # Corrección GOE: levanta ligeramente la correlación respecto a GUE
-    # (los niveles de GOE están menos correlacionados que los de GUE)
-    s_safe = np.where(s < 1e-10, 1e-10, s)
-    correccion = 0.5 * np.sinc(s) * np.cos(np.pi * s) / (np.pi * s_safe)
-    correccion = np.where(s < 1e-10, 0.0, correccion)
-    return np.clip(r2_gue + correccion, 0.0, 1.5)
+
+    # sinc'(s) = d/ds [sin(πs)/(πs)]
+    # = [π·cos(πs)·(πs) - sin(πs)·π] / (πs)²   (regla del cociente)
+    # = [cos(πs)/s - sin(πs)/(π·s²)]             (s ≠ 0)
+    # En s=0: límite = 0 (sinc es par y suave en el origen)
+    s_safe = np.where(np.abs(s) < 1e-10, 1e-10, s)
+    sinc_deriv = np.where(
+        np.abs(s) < 1e-10,
+        0.0,
+        np.cos(np.pi * s) / s_safe - np.sin(np.pi * s) / (np.pi * s_safe ** 2),
+    )
+
+    # ∫_s^∞ sinc(t) dt — evaluado punto a punto
+    # Para s > 5 la integral es < 0.5% y se trunca a 0 por eficiencia
+    integral_vals = np.zeros_like(s)
+    for idx in range(len(s)):
+        si = s[idx]
+        if si < 5.0:
+            integral_vals[idx] = _sinc_integral(float(si))
+        # si >= 5: se deja en 0.0
+
+    r2 = 1.0 - sinc_vals ** 2 + sinc_deriv * integral_vals
+
+    # Clip físico: R₂ ∈ [0, 1.5] (pequeñas oscilaciones numéricas en la cola)
+    result = np.clip(r2, 0.0, 1.5)
+
+    return float(result[0]) if scalar_input else result
 
 
 def r2_teorica_poisson(s: np.ndarray) -> np.ndarray:
@@ -127,7 +235,8 @@ def pair_correlation(
 
     Args:
         levels  : Espectro unfolded (ordenado, densidad ≈ 1).
-        s_max   : Distancia máxima a considerar.
+        s_max   : Distancia máxima a considerar. Usar s_max ≥ 5.0 para que
+                  la región de cola (s > 0.7·s_max) esté libre de correlaciones.
         bins    : Número de bins del histograma.
         normalize: Si True, normaliza para R₂(∞) → 1.
 
@@ -190,13 +299,18 @@ def pair_correlation_fast(
     Versión vectorizada de pair_correlation. Más eficiente para N > 500.
 
     Normalización: R₂(s) → 1 para s grande (referencia Poisson).
-    Se normaliza dividiando por la densidad de fondo estimada en la cola
-    del histograma (s > 0.7 * s_max), lo que hace que R₂ sea comparable
-    directamente con la predicción teórica GUE/Poisson.
+    Se normaliza dividiendo por la densidad de fondo estimada en la cola
+    del histograma (s > 0.7 * s_max).
+
+    Advertencia sobre s_max:
+        La normalización asume que la región s > 0.7·s_max está libre de
+        correlaciones. Para GUE/GOE, las correlaciones decaen a 1 para s ≳ 3.
+        Usar s_max ≥ 5.0 garantiza que la cola (s > 3.5) sea representativa.
+        Con s_max < 3, la normalización puede ser errónea.
 
     Args:
         levels: Espectro unfolded ordenado (densidad ≈ 1 después del unfolding).
-        s_max : Distancia máxima.
+        s_max : Distancia máxima. Recomendado: s_max ≥ 5.0.
         bins  : Número de bins.
 
     Returns:
@@ -334,7 +448,7 @@ def pair_correlation_histogram_numba(
     bin_width = bin_edges[1] - bin_edges[0]
     total_pairs = len(spectrum) * (len(spectrum) - 1) / 2
     g = hist / (total_pairs * bin_width)
-    tail_mean = np.mean(g[n_bins // 2 :])
+    tail_mean = np.mean(g[n_bins // 2:])
     if tail_mean > 0:
         g = g / tail_mean
     return r, g
@@ -368,6 +482,23 @@ if __name__ == "__main__":
     print(f"  R₂_GUE(1) = {r2_t[2]:.4f}  (esperado 0.0, nodo)")
     print(f"  R₂_GUE(2) = {r2_t[3]:.4f}  (esperado ≈ 1.0)")
     print(f"  {'✅' if abs(r2_t[0]) < 0.01 and abs(r2_t[3] - 1.0) < 0.1 else '❌'}")
+
+    # Test 3: GOE exacta — verificar propiedades cualitativas
+    print("\n[TEST 3] GOE exacta — propiedades")
+    s_test2 = np.array([0.0, 0.5, 1.0, 2.0, 3.0])
+    r2_goe = r2_teorica_goe(s_test2)
+    r2_gue_ref = r2_teorica_gue(s_test2)
+    print(f"  R₂_GOE(0) = {r2_goe[0]:.4f}  (esperado ≈ 0.0)")
+    print(f"  R₂_GOE vs GUE en s=0.5: GOE={r2_goe[1]:.4f} > GUE={r2_gue_ref[1]:.4f}  (GOE > GUE esperado)")
+    print(f"  R₂_GOE(3) = {r2_goe[4]:.4f}  (esperado ≈ 1.0)")
+    ok_goe = (
+        r2_goe[0] < 0.05
+        and r2_goe[1] > r2_gue_ref[1]
+        and abs(r2_goe[4] - 1.0) < 0.1
+    )
+    print(f"  {'✅' if ok_goe else '❌'}")
+    if not _SCIPY:
+        print("  ⚠️  scipy no disponible — GOE usa aproximación de cola para s>3")
 
     print("\n" + "=" * 60)
     print("✅ Tests completados")

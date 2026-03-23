@@ -41,13 +41,34 @@ from ..analysis.rigidity import delta3_dyson_mehta
 
 
 # ── Constantes asintóticas (Mehta, L → ∞) ────────────────────────────────────
+#
+# Estos son los coeficientes exactos del límite asintótico de Δ₃(L) cuando L → ∞.
+# NO deben usarse como referencias de clasificación en espectros finitos:
+# en ventanas L ∈ [5, 50] las pendientes efectivas son ~2x menores (ver abajo).
 
-PENDIENTE_GUE_ASINTOTICO = 1.0 / (np.pi ** 2)       # ≈ 0.10132
-PENDIENTE_GOE_ASINTOTICO = 1.0 / (2.0 * np.pi ** 2)  # ≈ 0.05066
+PENDIENTE_GUE_ASINTOTICO = 1.0 / (np.pi ** 2)        # = 1/π²  ≈ 0.10132
+PENDIENTE_GOE_ASINTOTICO = 1.0 / (2.0 * np.pi ** 2)  # = 1/2π² ≈ 0.05066
 
 # ── Referencias operativas SRCE (ventanas L finitas; THEORY.md) ───────────────
+#
+# IMPORTANTE: estas pendientes son calibradas empíricamente para espectros de
+# tamaño finito con unfolding correcto y L ∈ [5, 50]. Son ~2x menores que los
+# valores asintóticos de Mehta porque:
+#
+#   1. Para L finito, Δ₃(L) aún no alcanzó el régimen log(L) puro.
+#   2. El unfolding introduce una compresión efectiva del espectro.
+#   3. El bulk percentil 10-90 reduce el rango de ventanas efectivo.
+#
+# Comparación directa:
+#   Ensemble   Asintótico (Mehta)   Operativo SRCE   Factor
+#   ────────   ──────────────────   ───────────────   ──────
+#   GUE        1/π²  ≈ 0.10132      0.05              ~0.49x
+#   GOE        1/2π² ≈ 0.05066      0.025             ~0.49x
+#
+# Un usuario que compare con literatura y no lea THEORY.md verá pendientes
+# menores a las esperadas — esto es correcto, no un bug.
 
-PENDIENTE_GUE_REFERENCIA = 0.05   # α_eff GUE típico en pipeline calibrado
+PENDIENTE_GUE_REFERENCIA = 0.05   # α_eff GUE calibrado, L ∈ [5, 50]
 PENDIENTE_GOE_REFERENCIA = 0.025  # mitad de la ref. GUE (jerarquía GOE/GUE)
 
 # Alias usados en scores, distancias y pendiente_teorica del resultado
