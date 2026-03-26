@@ -72,14 +72,10 @@ try:
     )
     from src.riemann_spectral.analysis.spectral_form_factor import (
         spectral_form_factor,
-        spectral_form_factor_mehta,
-        spectral_form_factor_mehta_teorico,
-        extract_ramp_slope,
+        spectral_form_factor_teorico,
         r_statistic,
         r_distribucion_teorica,
-        R_MEAN_GUE,
-        R_MEAN_GOE,
-        R_MEAN_POISSON,
+        R_MEAN_GUE, R_MEAN_GOE, R_MEAN_POISSON,
     )
     from src.riemann_spectral.data.generators import (
         generar_gue_normalizado,
@@ -97,18 +93,6 @@ except ImportError as e:
     st.warning(f"⚠️ Módulo de análisis no disponible: {e}")
     st.info("💡 Verifica src/riemann_spectral/")
     RIGIDEZ_DISPONIBLE = False
-
-try:
-    from src.riemann_spectral.statistics import (
-        compute_r_parameter,
-        classify_ensemble_by_r,
-        R_GUE_EXACT,
-        R_GOE_EXACT,
-        R_POISSON_EXACT,
-    )
-    RMT_EXT_DISPONIBLE = True
-except ImportError:
-    RMT_EXT_DISPONIBLE = False
 
 # ============================================================================
 # CONFIGURACIÓN Y ESTADO DE SESIÓN
@@ -658,7 +642,14 @@ with tab2:
                     if analizar_gue:
                         st.info("Generando matriz GUE...")
                         try:
-                            eigenvalues = generar_gue_normalizado(N)
+                            import scipy.linalg as _la
+                            # Normalización de Wigner directa: H = (A+A†)/(2√N)
+                            # → autovalores en [-2, 2], compatibles con unfolding_wigner_gue
+                            _rng_gue = np.random.default_rng(42)
+                            _A = _rng_gue.standard_normal((N, N)) + \
+                                 1j * _rng_gue.standard_normal((N, N))
+                            _H = (_A + _A.conj().T) / (2 * np.sqrt(N))
+                            eigenvalues = np.sort(_la.eigvalsh(_H))
                             # Aplicar unfolding de Wigner
                             unfolded = unfolding_wigner_gue(eigenvalues)
                             
@@ -801,23 +792,34 @@ with tab3:
             resultados_rmt = {}
 
             # ── Generar espectros ────────────────────────────────────────────
+            # NOTA: generar_gue_normalizado() re-centra los autovalores en N/2,
+            # lo que los hace incompatibles con unfolding_wigner_gue (rango [-2,2]).
+            # Se construye la matriz directamente con la normalización de Wigner:
+            #   H = (A + A†) / (2√N)  →  autovalores en [-2, 2]
             try:
+                import scipy.linalg as _la
+
                 # Poisson
                 ev_poisson = generar_poisson(N_rmt, rng=rng_rmt)
                 resultados_rmt["Poisson"] = {"ev": ev_poisson, "color": "#e74c3c",
                                               "dash": "dash"}
 
-                # GUE
-                ev_gue_raw = generar_gue_normalizado(N_rmt, rng=rng_rmt)
+                # GUE — diagonalización con normalización de Wigner correcta
+                A = rng_rmt.standard_normal((N_rmt, N_rmt)) + \
+                    1j * rng_rmt.standard_normal((N_rmt, N_rmt))
+                H = (A + A.conj().T) / (2 * np.sqrt(N_rmt))
+                ev_gue_raw = np.sort(_la.eigvalsh(H))
                 ev_gue = unfolding_wigner_gue(ev_gue_raw)
                 n_g = len(ev_gue)
                 ev_gue = normalize_spacing(ev_gue[n_g//3: 2*(n_g//3)])
                 ev_gue = ev_gue - ev_gue[0]
                 resultados_rmt["GUE"] = {"ev": ev_gue, "color": "#3498db", "dash": "dot"}
 
-                # GOE (opcional)
+                # GOE (opcional) — misma corrección
                 if incluir_goe:
-                    ev_goe_raw = generar_goe_normalizado(N_rmt, rng=rng_rmt)
+                    A2 = rng_rmt.standard_normal((N_rmt, N_rmt))
+                    H2 = (A2 + A2.T) / (2 * np.sqrt(N_rmt))
+                    ev_goe_raw = np.sort(_la.eigvalsh(H2))
                     ev_goe = unfolding_wigner_gue(ev_goe_raw)
                     n_go = len(ev_goe)
                     ev_goe = normalize_spacing(ev_goe[n_go//3: 2*(n_go//3)])
@@ -846,14 +848,12 @@ with tab3:
     if st.session_state.resultados_rmt:
         res = st.session_state.resultados_rmt
 
-        rmt_t1, rmt_t2, rmt_t3, rmt_t4, rmt_t5, rmt_t6, rmt_t7, rmt_t8 = st.tabs([
+        rmt_t1, rmt_t2, rmt_t3, rmt_t4, rmt_t5, rmt_t6 = st.tabs([
             "P(s) Espaciados",
             "Σ²(L) Varianza",
             "R₂(s) Correlación Pares",
             "K(t) Form Factor",
             "r-statistic",
-            "⟨r⟩ Atas (modular)",
-            "K(τ) coherente",
             "📋 Resumen Comparativo",
         ])
 
@@ -923,15 +923,9 @@ with tab3:
             if mostrar_matematicas:
                 col_eq1, col_eq2 = st.columns(2)
                 with col_eq1:
-                    st.latex(
-                        r"\Sigma^2(L) = \langle (N(L) - \langle N(L)\rangle)^2 \rangle"
-                    )
+                    st.latex(r"\Sigma^2(L) = \langle (N(L) - L)^2 \rangle")
                 with col_eq2:
                     st.latex(r"\Sigma^2_\text{GUE}(L) \approx \frac{1}{\pi^2}\ln L")
-                st.caption(
-                    "Estimador SRCE sobre ventanas deslizantes; "
-                    "curvas teóricas siguen la convención asintótica (Mehta)."
-                )
 
             L_sigma = np.array([2.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0])
             fig_s2 = go.Figure()
@@ -1062,15 +1056,15 @@ with tab3:
 
             # Teóricas
             fig_kf.add_trace(go.Scatter(
-                x=t_teo, y=spectral_form_factor_mehta_teorico(t_teo, "GUE"),
+                x=t_teo, y=spectral_form_factor_teorico(t_teo, "GUE"),
                 mode="lines", name="GUE teórico",
                 line=dict(color="#3498db", width=1, dash="dash")))
             fig_kf.add_trace(go.Scatter(
-                x=t_teo, y=spectral_form_factor_mehta_teorico(t_teo, "GOE"),
+                x=t_teo, y=spectral_form_factor_teorico(t_teo, "GOE"),
                 mode="lines", name="GOE teórico",
                 line=dict(color="#2ecc71", width=1, dash="dot")))
             fig_kf.add_trace(go.Scatter(
-                x=t_teo, y=spectral_form_factor_mehta_teorico(t_teo, "Poisson"),
+                x=t_teo, y=spectral_form_factor_teorico(t_teo, "Poisson"),
                 mode="lines", name="Poisson teórico (=1)",
                 line=dict(color="#e74c3c", width=1, dash="dash")))
 
@@ -1078,7 +1072,7 @@ with tab3:
             for label, d in res.items():
                 ev = d["ev"]
                 try:
-                    t_obs, K_obs = spectral_form_factor_mehta(
+                    t_obs, K_obs = spectral_form_factor(
                         ev, t_max=t_max_kfac, n_t=200,
                         smooth_sigma=smooth_kfac if smooth_kfac > 0 else None)
                     fig_kf.add_trace(go.Scatter(
@@ -1185,98 +1179,9 @@ with tab3:
                     "(niveles muy cercanos son frecuentes sin correlaciones).")
 
         # ════════════════════════════════════════════════════════════════════
-        # ⟨r⟩ — módulo statistics (constantes Atas exactas Poisson/GOE)
-        # ════════════════════════════════════════════════════════════════════
-        with rmt_t6:
-            st.subheader("⟨r⟩ — clasificación modular (Atas et al.)")
-            if RMT_EXT_DISPONIBLE:
-                st.markdown(
-                    "Módulo `riemann_spectral.statistics`: "
-                    f"⟨r⟩ teóricos — Poisson `{R_POISSON_EXACT:.6f}`, "
-                    f"GOE `{R_GOE_EXACT:.6f}`, GUE `{R_GUE_EXACT:.6f}`."
-                )
-                filas_atas = []
-                for label, d in res.items():
-                    try:
-                        ev = np.sort(np.asarray(d["ev"], dtype=np.float64))
-                        r_obs = compute_r_parameter(ev)
-                        out = classify_ensemble_by_r(ev)
-                        filas_atas.append({
-                            "Etiqueta": label,
-                            "⟨r⟩ obs": f"{r_obs:.6f}",
-                            "Clasif.": out["ensemble"],
-                            "Conf.": f"{100 * float(out['confidence']):.0f}%",
-                        })
-                    except Exception as ex_a:
-                        filas_atas.append({
-                            "Etiqueta": label,
-                            "⟨r⟩ obs": "—",
-                            "Clasif.": "—",
-                            "Conf.": str(ex_a)[:40],
-                        })
-                if filas_atas:
-                    st.dataframe(pd.DataFrame(filas_atas), hide_index=True,
-                                 use_container_width=True)
-                st.info(
-                    "Complementa el tab **r-statistic** (dashboard): aquí las "
-                    "constantes coinciden con las expresiones cerradas de Atas "
-                    "(Poisson, GOE) y el valor tabulado estándar para GUE."
-                )
-            else:
-                st.warning(
-                    "Módulo `statistics` no importable. "
-                    "Verifica `src/riemann_spectral/statistics/`."
-                )
-
-        # ════════════════════════════════════════════════════════════════════
-        # K(τ) — |∑ exp(iτE)|²/N (dip–ramp–plateau, literatura quantum chaos)
-        # ════════════════════════════════════════════════════════════════════
-        with rmt_t7:
-            st.subheader("K(τ) — factor de forma coherente")
-            if RMT_EXT_DISPONIBLE:
-                st.latex(
-                    r"K(\tau) = \frac{1}{N}\left|\sum_j e^{i\tau E_j}\right|^2"
-                )
-                st.caption(
-                    "Convención distinta al K(t) del tab anterior (transformada "
-                    "tipo Mehta). Escala log-log recomendada."
-                )
-                tau_max_c = st.slider("τ máximo", 5.0, 80.0, 40.0, 5.0,
-                                        key="tau_max_coherent")
-                npt_c = st.slider("Puntos τ", 50, 400, 150, 25, key="npt_coherent")
-                fig_kt = go.Figure()
-                for label, d in res.items():
-                    try:
-                        ev = np.asarray(d["ev"], dtype=np.float64)
-                        tau_c, K_c = spectral_form_factor(
-                            ev, tau_max=tau_max_c, n_points=int(npt_c),
-                            normalize=True,
-                        )
-                        sl = extract_ramp_slope(tau_c, K_c, len(ev))
-                        fig_kt.add_trace(go.Scatter(
-                            x=tau_c, y=np.maximum(K_c, 1e-15),
-                            mode="lines", name=f"{label} (ramp slope≈{sl:.2f})",
-                            line=dict(color=d["color"], width=2),
-                        ))
-                    except Exception as ex_k:
-                        st.warning(f"{label}: {ex_k}")
-                fig_kt.update_layout(
-                    title="K(τ) coherente (log-log)",
-                    xaxis_title="τ", yaxis_title="K(τ)",
-                    xaxis_type="log", yaxis_type="log",
-                    height=500, hovermode="x unified",
-                )
-                st.plotly_chart(fig_kt, use_container_width=True)
-            else:
-                st.warning(
-                    "No se pudo cargar el factor de forma coherente "
-                    "(`spectral_form_factor` en `spectral_form_factor.py`)."
-                )
-
-        # ════════════════════════════════════════════════════════════════════
         # RESUMEN COMPARATIVO — tabla + radar chart
         # ════════════════════════════════════════════════════════════════════
-        with rmt_t8:
+        with rmt_t6:
             st.subheader("📋 Resumen Comparativo — Todas las Estadísticas")
             st.markdown("""
             Cada fila es un ensemble. Cada columna es una estadística espectral.
@@ -1496,9 +1401,7 @@ with tab4:
 
         st.divider()
         st.markdown("### 4. Number Variance Σ²(L) — Fluctuaciones")
-        st.latex(
-            r"\Sigma^2(L) = \bigl\langle (N(L) - \langle N(L) \rangle)^2 \bigr\rangle"
-        )
+        st.latex(r"\Sigma^2(L) = \langle (N(L) - L)^2 \rangle")
         col_s1, col_s2, col_s3 = st.columns(3)
         with col_s1:
             st.latex(r"\Sigma^2_\text{Poisson}(L) = L")
