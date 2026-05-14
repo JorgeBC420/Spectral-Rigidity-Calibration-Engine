@@ -1,6 +1,13 @@
 # -*- coding: utf-8 -*-
 # ÍNDICE COMPLETO DEL PROYECTO
 
+## Nota 2026-05
+
+El índice operativo de la carpeta `srce/docs/` está en **[readme.md](readme.md)**.  
+Auditoría de estado del repositorio: **[AUDITORIA_REPO_2026-05.md](AUDITORIA_REPO_2026-05.md)**.
+
+---
+
 ## ?? Estructura del Workspace
 
 ```

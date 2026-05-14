@@ -35,6 +35,9 @@ venv/
 .venv
 ENV/
 
+# ── Salidas locales de scripts ───────────────────────────────
+srce/scripts/output/
+
 # ── Numba JIT cache ─────────────────────────────────────────
 .numba_cache/
 __numba_cache__/

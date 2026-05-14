@@ -19,4 +19,7 @@ setup(
         "pytest>=7.4.0",
     ],
     python_requires=">=3.9",
+    extras_require={
+        "rigorous": ["python-flint>=0.8.0"],
+    },
 )

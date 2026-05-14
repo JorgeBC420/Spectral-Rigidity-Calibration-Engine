@@ -848,12 +848,13 @@ with tab3:
     if st.session_state.resultados_rmt:
         res = st.session_state.resultados_rmt
 
-        rmt_t1, rmt_t2, rmt_t3, rmt_t4, rmt_t5, rmt_t6 = st.tabs([
+        rmt_t1, rmt_t2, rmt_t3, rmt_t4, rmt_t5, rmt_t6, rmt_t7 = st.tabs([
             "P(s) Espaciados",
             "Σ²(L) Varianza",
             "R₂(s) Correlación Pares",
             "K(t) Form Factor",
             "r-statistic",
+            "🔀 Unfolding Comparado",
             "📋 Resumen Comparativo",
         ])
 
@@ -1072,7 +1073,7 @@ with tab3:
             for label, d in res.items():
                 ev = d["ev"]
                 try:
-                    t_obs, K_obs = spectral_form_factor(
+                    t_obs, K_obs = spectral_form_factor_mehta(
                         ev, t_max=t_max_kfac, n_t=200,
                         smooth_sigma=smooth_kfac if smooth_kfac > 0 else None)
                     fig_kf.add_trace(go.Scatter(
@@ -1181,7 +1182,170 @@ with tab3:
         # ════════════════════════════════════════════════════════════════════
         # RESUMEN COMPARATIVO — tabla + radar chart
         # ════════════════════════════════════════════════════════════════════
+        # ════════════════════════════════════════════════════════════════════
+        # UNFOLDING COMPARADO — KDE vs Spline vs Polinomial vs Analítico
+        # ════════════════════════════════════════════════════════════════════
         with rmt_t6:
+            st.subheader("🔀 Comparación de Métodos de Unfolding")
+            st.markdown("""
+            El **unfolding** transforma el espectro crudo a densidad local ≈ 1.
+            La calidad del unfolding afecta directamente todas las estadísticas.
+            Aquí comparamos cuatro métodos sobre los mismos datos.
+            """)
+
+            try:
+                from src.riemann_spectral.analysis.empirical_unfolding import (
+                    compare_unfolding_methods,
+                    spacing_histogram,
+                )
+                from src.riemann_spectral.analysis.unfolding import unfolding_riemann
+
+                # ── Selector de espectro ──────────────────────────────────
+                col_uf1, col_uf2 = st.columns([2, 1])
+                with col_uf1:
+                    espectro_uf = st.selectbox(
+                        "Espectro a analizar",
+                        options=list(res.keys()),
+                        key="uf_espectro",
+                        help="Selecciona el ensemble sobre el que comparar los métodos"
+                    )
+                with col_uf2:
+                    recorte_uf = st.slider("Recorte extremos", 0.0, 0.2, 0.1, 0.05,
+                                           key="uf_recorte")
+
+                col_p1, col_p2, col_p3 = st.columns(3)
+                with col_p1:
+                    kde_bw = st.number_input("KDE bandwidth (0=auto)", 0.0, 10.0, 0.0,
+                                             step=0.1, key="uf_kde_bw")
+                    kde_bw = None if kde_bw == 0.0 else kde_bw
+                with col_p2:
+                    spline_k = st.slider("Spline nudos", 10, 200, 50, 10, key="uf_spline_k")
+                with col_p3:
+                    poly_d = st.slider("Polinomio grado", 3, 15, 7, 1, key="uf_poly_d")
+
+                # ── Determinar si hay función analítica disponible ────────
+                ev_raw = res[espectro_uf]["ev"]
+                analytic = unfolding_riemann if espectro_uf == "Riemann" else None
+
+                # ── Correr comparación ────────────────────────────────────
+                with st.spinner("Calculando métodos de unfolding..."):
+                    uf_results = compare_unfolding_methods(
+                        ev_raw,
+                        analytic_fn=analytic,
+                        kde_bandwidth=kde_bw,
+                        spline_knots=spline_k,
+                        poly_degree=poly_d,
+                        recorte=recorte_uf,
+                    )
+
+                # ── Tabla de métricas ─────────────────────────────────────
+                st.markdown("#### Métricas por método")
+                R_POI = 2 * np.log(2) - 1
+                R_GUE = 0.60272
+                R_GOE = 4 - 2 * np.sqrt(3)
+
+                filas_uf = []
+                for mname, mr in uf_results.items():
+                    if np.isfinite(mr.get("r_mean", np.nan)):
+                        d_gue = abs(mr["r_mean"] - R_GUE)
+                        d_goe = abs(mr["r_mean"] - R_GOE)
+                        d_poi = abs(mr["r_mean"] - R_POI)
+                        clasif = min({"GUE": d_gue, "GOE": d_goe, "Poisson": d_poi},
+                                     key=lambda k: {"GUE": d_gue, "GOE": d_goe, "Poisson": d_poi}[k])
+                    else:
+                        clasif = "—"
+                    filas_uf.append({
+                        "Método"    : mname,
+                        "⟨s⟩"      : f"{mr['mean_s']:.4f}" if np.isfinite(mr.get('mean_s', np.nan)) else "—",
+                        "σ(s)"      : f"{mr['std_s']:.4f}"  if np.isfinite(mr.get('std_s', np.nan))  else "—",
+                        "⟨r⟩"      : f"{mr['r_mean']:.4f}" if np.isfinite(mr.get('r_mean', np.nan)) else "—",
+                        "Ensemble"  : clasif,
+                        "Válido"    : "✅" if mr.get("is_valid") else "❌",
+                    })
+                if filas_uf:
+                    st.dataframe(pd.DataFrame(filas_uf), hide_index=True,
+                                 use_container_width=True)
+
+                # ── Gráfica: P(s) para cada método ───────────────────────
+                st.markdown("#### P(s) por método de unfolding")
+                s_teo = np.linspace(0.01, 4, 300)
+                fig_uf = go.Figure()
+
+                # Curvas teóricas
+                fig_uf.add_trace(go.Scatter(
+                    x=s_teo, y=np.exp(-s_teo),
+                    mode="lines", name="Poisson teórico",
+                    line=dict(color="#e74c3c", dash="dash", width=1)))
+                fig_uf.add_trace(go.Scatter(
+                    x=s_teo,
+                    y=(np.pi/2)*s_teo*np.exp(-np.pi*s_teo**2/4),
+                    mode="lines", name="GUE teórico",
+                    line=dict(color="#3498db", dash="dash", width=1)))
+
+                colores_uf = {
+                    "KDE": "#e67e22", "Spline": "#9b59b6",
+                    "Polinomial": "#1abc9c", "Analítico": "#2c3e50"
+                }
+                for mname, mr in uf_results.items():
+                    if mr.get("unfolded_central") is not None and mr["is_valid"]:
+                        sc, sh = spacing_histogram(mr["unfolded_central"], bins=40)
+                        if len(sc) > 0:
+                            fig_uf.add_trace(go.Scatter(
+                                x=sc, y=sh, mode="lines+markers",
+                                name=mname,
+                                line=dict(color=colores_uf.get(mname, "#555"), width=2),
+                                marker=dict(size=4)))
+
+                fig_uf.update_layout(
+                    title=f"P(s) — {espectro_uf} — comparación de métodos de unfolding",
+                    xaxis_title="s", yaxis_title="P(s)",
+                    hovermode="x unified", height=480)
+                st.plotly_chart(fig_uf, use_container_width=True)
+
+                # ── Gráfica: espectros unfolded superpuestos ──────────────
+                st.markdown("#### Espectros unfolded — primeros 100 puntos")
+                fig_ev = go.Figure()
+                for mname, mr in uf_results.items():
+                    if mr.get("unfolded") is not None:
+                        uf = mr["unfolded"][:100]
+                        fig_ev.add_trace(go.Scatter(
+                            x=np.arange(len(uf)), y=uf,
+                            mode="lines", name=mname,
+                            line=dict(color=colores_uf.get(mname, "#555"), width=1.5)))
+
+                fig_ev.update_layout(
+                    title="Comparación de espectros unfolded (primeros 100 puntos)",
+                    xaxis_title="índice n", yaxis_title="nivel unfolded uₙ",
+                    hovermode="x unified", height=350)
+                st.plotly_chart(fig_ev, use_container_width=True)
+
+                # ── Interpretación ────────────────────────────────────────
+                with st.expander("📖 ¿Qué miro aquí?"):
+                    st.markdown("""
+**⟨s⟩ ≈ 1.0** — todos los métodos deben producir esto. Si alguno da ⟨s⟩ ≠ 1,
+ese método introduce sesgo de densidad (error de unfolding).
+
+**σ(s)** — dispersión de los espaciados. Poisson: σ≈1.0. GUE: σ≈0.42.
+Un σ intermedio puede indicar un unfolding que no separa bien las escalas.
+
+**⟨r⟩** — r-statistic (no depende del unfolding). Es la referencia objetiva.
+Si ⟨r⟩ apunta a GUE pero P(s) de un método parece Poisson, ese método
+está sobresuavizando y destruyendo las correlaciones de corto alcance.
+
+**Para ceros de Riemann:** los cuatro métodos deberían dar ⟨r⟩ ≈ 0.60 (GUE).
+Si KDE y Spline dan resultados muy distintos, el ancho de banda o los nudos
+necesitan ajuste. El Analítico (Riemann–von Mangoldt) es la referencia.
+                    """)
+
+            except ImportError as e:
+                st.error(f"❌ empirical_unfolding no disponible: {e}")
+                st.info("Verifica: `src/riemann_spectral/analysis/empirical_unfolding.py`")
+            except Exception as e:
+                st.error(f"❌ Error en comparación de unfolding: {e}")
+                if modo_debug:
+                    st.exception(e)
+
+        with rmt_t7:
             st.subheader("📋 Resumen Comparativo — Todas las Estadísticas")
             st.markdown("""
             Cada fila es un ensemble. Cada columna es una estadística espectral.

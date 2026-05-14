@@ -127,7 +127,9 @@ def test_poisson_delta3_formula():
         todos_ok,
         f"Promedio sobre {N_REAL} realizaciones, L ∈ {L_VALORES}, tolerancia {100*TOLERANCIA:.0f}%",
     )
-    return todos_ok
+    assert todos_ok, (
+        "Poisson: Delta_3(L) ≈ L/15 — ver detalle arriba y lista _resultados."
+    )
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -227,7 +229,9 @@ def test_gue_menor_que_poisson():
         ok,
         f"GUE={mean_gue:.4f}  Poisson={mean_poi:.4f}  ratio={mean_gue/mean_poi:.3f} (debe ser < {1-MARGEN:.2f})",
     )
-    return ok
+    assert ok, (
+        f"GUE no suficientemente menor que Poisson en L={L} (ver ratios arriba)."
+    )
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -304,7 +308,7 @@ def test_delta3_monotonia():
         f"Verificado en {len(L_grid)} puntos, L ∈ [{L_grid[0]:.1f}, {L_grid[-1]:.1f}], "
         f"tolerancia ruido {100*TOLERANCIA_RUIDO:.0f}%",
     )
-    return ok
+    assert ok, "Delta_3(L) no monótona según criterio de ruido (ver violaciones arriba)."
 
 
 # ════════════════════════════════════════════════════════════════════════════

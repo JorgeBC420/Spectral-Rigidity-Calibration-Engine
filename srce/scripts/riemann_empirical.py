@@ -781,7 +781,7 @@ def guardar_reporte(
 def main(
     n_zeros:        int   = 2000,
     from_file:      str   = '',
-    use_sliding_window: bool  = False,
+    sliding_window: bool  = False,
     sw_window_size: int   = 1500,
     sw_step:        int   = 200,
     compare_gue:    bool  = True,
@@ -799,7 +799,7 @@ def main(
     print(f"  Ceros            : {n_zeros}")
     print(f"  Recorte          : {recorte} ({100*(1-2*recorte):.0f}% central)")
     print(f"  L_grid           : [{L_grid.min():.1f}, {L_grid.max():.1f}], {len(L_grid)} pts")
-    print(f"  Sliding window   : {'sí' if use_sliding_window else 'no'}")
+    print(f"  Sliding window   : {'sí' if sliding_window else 'no'}")
     print(f"  Comparar GUE     : {'sí' if compare_gue else 'no'}")
     print()
 
@@ -874,10 +874,10 @@ def main(
     alphas_sw  = np.array([])
     r_sw       = np.array([])
 
-    if use_sliding_window:
+    if sliding_window:
         print(f"\n  Sliding window (W={sw_window_size}, step={sw_step})...")
         t0 = time.perf_counter()
-        centros_sw, alphas_sw, r_sw = sliding_window(
+        centros_sw, alphas_sw, r_sw = globals()['sliding_window'](
             zeros, sw_window_size, sw_step, L_grid, recorte
         )
         print(f"  {len(centros_sw)} ventanas válidas  ({time.perf_counter()-t0:.1f}s)")
@@ -899,7 +899,7 @@ def main(
     print("\n  Generando outputs...")
     plot_diagnostico_completo(zeros, espectro, res_r, res_d3, res_s2, gue_base, out_dir)
     plot_convergencia(N_vals, alphas_conv, R2s_conv, gue_base, out_dir)
-    if use_sliding_window and len(centros_sw) > 0:
+    if sliding_window and len(centros_sw) > 0:
         plot_sliding(centros_sw, alphas_sw, r_sw, out_dir)
     guardar_reporte(zeros, espectro, res_r, res_d3, res_s2, diag, out_dir)
 
@@ -945,7 +945,7 @@ if __name__ == "__main__":
     main(
         n_zeros        = args.n_zeros,
         from_file      = args.from_file,
-        use_sliding_window = args.sliding_window,
+        sliding_window = args.sliding_window,
         sw_window_size = args.sw_window_size,
         sw_step        = args.sw_step,
         compare_gue    = args.compare_gue,

@@ -1,6 +1,15 @@
 # -*- coding: utf-8 -*-
 # CHANGELOG: Auditoría y Mejoras de Seguridad
 
+## 2026-05-11 — Documentación y módulo rigorous
+
+- README raíz alineado con GitHub y guía de instalación (`PYTHONPATH`, pytest, extra `rigorous`).
+- Nueva auditoría: `docs/AUDITORIA_REPO_2026-05.md`; notas breves: `docs/HISTORIAL_2026-05-11.md`.
+- Paquete `src/riemann_spectral/rigorous/` (`arb_bridge`, `rs_bounds`) y script `zeta_altura_extrema.py` documentados en `docs/readme.md`.
+- `setup.py`: `extras_require["rigorous"]` → `python-flint`.
+
+---
+
 ## Versión 1.0 - Auditoría Completa
 
 ### ?? Fecha: 2024
