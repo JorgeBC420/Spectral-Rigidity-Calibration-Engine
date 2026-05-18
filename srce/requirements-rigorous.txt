@@ -1,0 +1,4 @@
+# Optional rigorous backend for arb_bridge.py
+# Install only when certified Arb/FLINT evaluations are needed.
+-r requirements.txt
+python-flint>=0.8.0

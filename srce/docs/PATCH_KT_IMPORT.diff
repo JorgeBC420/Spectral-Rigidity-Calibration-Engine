@@ -1,0 +1,113 @@
+--- /mnt/data/srce_work/Spectral-Rigidity-Calibration-Engine-main/srce/dashboard.py	2026-05-14 10:41:47.000000000 +0000
++++ /mnt/data/srce_fixed/srce/dashboard.py	2026-05-18 09:48:59.324640856 +0000
+@@ -72,6 +72,7 @@
+     )
+     from src.riemann_spectral.analysis.spectral_form_factor import (
+         spectral_form_factor,
++        spectral_form_factor_mehta,
+         spectral_form_factor_teorico,
+         r_statistic,
+         r_distribucion_teorica,
+@@ -1041,7 +1042,7 @@
+         with rmt_t4:
+             st.subheader("K(t) — Factor de Forma Espectral")
+             if mostrar_matematicas:
+-                st.latex(r"K(t) = \frac{1}{N}\left|\sum_n e^{2\pi i\,t\,\gamma_n}\right|^2")
++                st.latex(r"K(t) = \frac{1}{N^2}\left|\sum_n e^{2\pi i\,t\,\gamma_n}\right|^2")
+                 col_eq1, col_eq2 = st.columns(2)
+                 with col_eq1:
+                     st.latex(r"K_\text{GUE}(t) = \begin{cases}|t| & |t|\le 1 \\ 1 & |t|>1\end{cases}")
+--- /mnt/data/srce_work/Spectral-Rigidity-Calibration-Engine-main/srce/src/riemann_spectral/analysis/__init__.py	2026-05-14 10:41:47.000000000 +0000
++++ /mnt/data/srce_fixed/srce/src/riemann_spectral/analysis/__init__.py	2026-05-18 09:48:59.325384228 +0000
+@@ -1,4 +1,4 @@
+-# Analysis: unfolding, rigidez, espectral (Jacobiano, gap, modo blando)
++# Analysis: unfolding, rigidez, espectral, pair_correlation, spectral_form_factor
+ 
+ from .unfolding import unfolding_riemann, N_T_approx
+ from .spectral import (
+@@ -16,19 +16,38 @@
+     ecuacion_espaciado_minimo_correcta,
+     descomponer_termino_regular,
+ )
++from .pair_correlation import (
++    pair_correlation_fast,
++    r2_teorica_gue,
++    r2_teorica_goe,
++    r2_teorica_poisson,
++    chi2_r2_vs_gue,
++)
++from .spectral_form_factor import (
++    r_statistic,
++    r_distribucion_teorica,
++    spectral_form_factor,
++    spectral_form_factor_mehta,
++    spectral_form_factor_mehta_teorico,
++    spectral_form_factor_teorico,
++    R_MEAN_GUE,
++    R_MEAN_GOE,
++    R_MEAN_POISSON,
++)
+ 
+ __all__ = [
+-    "unfolding_riemann",
+-    "N_T_approx",
+-    "calcular_jacobiano_kernel",
+-    "energia_log_gas",
+-    "analizar_espectro_completo",
+-    "analizar_modo_blando",
+-    "clasificar_modo_blando",
+-    "calcular_espaciados",
+-    "espaciado_minimo",
+-    "varianza_numero",
+-    "delta3_dyson_mehta",
+-    "ecuacion_espaciado_minimo_correcta",
++    "unfolding_riemann", "N_T_approx",
++    "calcular_jacobiano_kernel", "energia_log_gas",
++    "analizar_espectro_completo", "analizar_modo_blando", "clasificar_modo_blando",
++    "calcular_espaciados", "espaciado_minimo", "varianza_numero",
++    "delta3_dyson_mehta", "ecuacion_espaciado_minimo_correcta",
+     "descomponer_termino_regular",
++    "pair_correlation_fast", "r2_teorica_gue", "r2_teorica_goe",
++    "r2_teorica_poisson", "chi2_r2_vs_gue",
++    "r_statistic", "r_distribucion_teorica",
++    "spectral_form_factor",
++    "spectral_form_factor_mehta",
++    "spectral_form_factor_mehta_teorico",
++    "spectral_form_factor_teorico",
++    "R_MEAN_GUE", "R_MEAN_GOE", "R_MEAN_POISSON",
+ ]
+--- /mnt/data/srce_work/Spectral-Rigidity-Calibration-Engine-main/srce/validate_imports.py	2026-05-14 10:41:47.000000000 +0000
++++ /mnt/data/srce_fixed/srce/validate_imports.py	2026-05-18 09:48:59.326031118 +0000
+@@ -68,6 +68,20 @@
+         print_error(f"  └─ Error: {e}")
+         return False
+ 
++def validate_attribute(module_name, attribute_name):
++    """Valida que un atributo exista en un módulo, aunque no sea callable."""
++    try:
++        module = __import__(module_name, fromlist=[attribute_name])
++        getattr(module, attribute_name)
++        print_ok(f"  └─ {attribute_name}")
++        return True
++    except AttributeError:
++        print_error(f"  └─ {attribute_name} NO EXISTE")
++        return False
++    except Exception as e:
++        print_error(f"  └─ Error: {e}")
++        return False
++
+ def main():
+     print(f"\n{Colors.BOLD}{Colors.BLUE}{'='*70}{Colors.END}")
+     print(f"{Colors.BOLD}{Colors.BLUE}🔍 VALIDACIÓN DE IMPORTS PARA DASHBOARD{Colors.END}")
+@@ -120,8 +134,10 @@
+         print_ok("solucionador_reimann.py        Módulo cargado")
+         
+         # Validar funciones específicas
++        if not validate_attribute('solucionador_reimann', 'CACHE'):
++            all_ok = False
++
+         motor_functions = [
+-            'CACHE',
+             'analizar_espaciado_puntual',
+             'estudiar_espaciado_vs_N',
+             'espaciado_minimo',

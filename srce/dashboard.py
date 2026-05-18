@@ -72,6 +72,7 @@ try:
     )
     from src.riemann_spectral.analysis.spectral_form_factor import (
         spectral_form_factor,
+        spectral_form_factor_mehta,
         spectral_form_factor_teorico,
         r_statistic,
         r_distribucion_teorica,
@@ -1041,7 +1042,7 @@ with tab3:
         with rmt_t4:
             st.subheader("K(t) — Factor de Forma Espectral")
             if mostrar_matematicas:
-                st.latex(r"K(t) = \frac{1}{N}\left|\sum_n e^{2\pi i\,t\,\gamma_n}\right|^2")
+                st.latex(r"K(t) = \frac{1}{N^2}\left|\sum_n e^{2\pi i\,t\,\gamma_n}\right|^2")
                 col_eq1, col_eq2 = st.columns(2)
                 with col_eq1:
                     st.latex(r"K_\text{GUE}(t) = \begin{cases}|t| & |t|\le 1 \\ 1 & |t|>1\end{cases}")

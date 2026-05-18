@@ -1,6 +1,17 @@
 # -*- coding: utf-8 -*-
 # CHANGELOG: Auditoría y Mejoras de Seguridad
 
+## 2026-05-18 — Fusión auditoría dashboard + zeta v2.2.3
+
+- **Dashboard:** import `spectral_form_factor_mehta`; fórmula K(t) con `1/N²` (Mehta).
+- **`analysis/__init__.py`:** exports sincronizados (pair_correlation, spectral_form_factor, r_statistic).
+- **`validate_imports.py`:** `CACHE` validado como atributo, no callable.
+- **`requirements-rigorous.txt`:** `python-flint` explícito para `--arb`.
+- **`zeta_altura_extrema.py` v2.2.3** (repo, posterior a la auditoría del zip): Fase 1 con Z exacta; secante `min`/`max` nativos (fix `mp.min`).
+- Docs: `AUDITORIA_COMPLETA_SRCE_2026-05-18.md`, `PATCH_KT_IMPORT.diff`.
+
+---
+
 ## 2026-05-11 — Documentación y módulo rigorous
 
 - README raíz alineado con GitHub y guía de instalación (`PYTHONPATH`, pytest, extra `rigorous`).

@@ -54,15 +54,15 @@ Cambios v2.2 respecto a v2.1
 
     La v2.1 separa las responsabilidades:
 
-        Candidate     ← Fase 1 (cambio de signo en Z_phase_approx)
-        ValidatedZero ← Fase 2 (Z exacta + secante convergida)
+        Candidate     ← Fase 1 (cambio de signo en Z exacta sobre grilla ~dt_safe)
+        ValidatedZero ← Fase 2 (refinamiento secante; Z exacta ya coherente en bracket)
         AcceptedZero  ← Fase 3 (score ≥ umbral + estabilidad dps + resolución)
 
-    Solo AcceptedZero con score ≥ 0.8 alimenta SRCE.
+    Solo AcceptedZero con score ≥ 0.8 alimentan SRCE.
     Con score < 0.8 se registran pero no se analizan espectralmente.
 
     --solo-fase renombrado a --solo-candidatos para honestidad semántica:
-    un cambio de signo en Z_phase_approx no es un cero — es un candidato.
+    un bracket por cambio de signo en la grilla no es un cero aceptado — es candidato.
 
     Cambio 7 (multi-altura): no calcula Δ₃ si n_accepted < 8 o
     score_medio < 0.75. Evita que α(T) parezca más fuerte de lo que es.
@@ -79,14 +79,13 @@ El problema central a T=10^70: la suma de Riemann-Siegel requiere
 a este costo. La solución es una separación de responsabilidades:
 
     ┌──────────────────────────────────────────────────────────────┐
-    │  FASE 1 — DETECCIÓN  (O(1) por punto, sin mpmath.zeta)       │
-    │  Usa solo θ_asint(T, dt): aritmética pura con mpf de T.      │
-    │  Z(t) ≈ 2·cos(θ(t)) cuando los términos RS decaen rápido.   │
-    │  Detecta cambios de signo en la fase → candidatos a cero.    │
+    │  FASE 1 — DETECCIÓN  (Z exacta Hardy en grilla ~dt_safe)       │
+    │  Evalúa Z(T+dt) con mpmath.zeta en cada punto de la grilla.   │
+    │  Los ceros de Z no coinciden con los de 2·cos(θ): la fase sola │
+    │  no basta para brackets válidos. Coste O(n_scan) por ventana.  │
     │                                                              │
-    │  FASE 2 — VALIDACIÓN  (mpmath.zeta, solo ~10-20 ceros)       │
-    │  Para cada candidato, evalúa Z exacta con dps adaptativo.    │
-    │  Refina con método de la secante sobre dt (no sobre T).      │
+    │  FASE 2 — REFINAMIENTO  (secante sobre dt, ~10–20 ceros)      │
+    │  Refina cada bracket ya con cambio de signo en Z exacta.      │
     │  Operaciones siempre sobre dt << 1 para evitar cancelación.  │
     └──────────────────────────────────────────────────────────────┘
 
@@ -152,9 +151,8 @@ Salidas
     output/zeta_convergencia.png — α(N) vs log(T)
 
 Autor: Jorge BC & Claude
-Versión: 2.2.2 (Backlund + Gram + residual intervalar; secante v2.2.1).
-    Opcional: --arb usa python-flint/Arb para conteo Backlund certificado
-    (ver riemann_spectral.rigorous.arb_bridge). Consola UTF-8 en Windows.
+Versión: 2.2.3 — Fase 1 con Z exacta en grilla (~dt_safe); secante con min/max nativos;
+    conteo Backlund opcional --arb (python-flint); UTF-8 en consola Windows.
 """
 
 from __future__ import annotations
@@ -774,8 +772,8 @@ def refinar_cero_secante(
             dt_new = dt_b_mp - Zb * (dt_b_mp - dt_a_mp) / dZ
 
             # Fallback: si dt_new sale del intervalo, usar bisección
-            lo = mp.min(dt_a_mp, dt_b_mp)
-            hi = mp.max(dt_a_mp, dt_b_mp)
+            lo = min(dt_a_mp, dt_b_mp)
+            hi = max(dt_a_mp, dt_b_mp)
             if dt_new < lo or dt_new > hi:
                 dt_new = (lo + hi) / 2
 
@@ -822,7 +820,7 @@ def refinar_cero_secante(
 # Estos tres dataclasses reemplazan la mezcla implícita que había en
 # buscar_ceros_desplazados(). El flujo de datos ahora es:
 #
-#   detectar_candidatos()  →  [Candidate]
+#   detectar_candidatos()  →  [Candidate]   (Z exacta en grilla ~dt_safe)
 #   validar_candidato()    →  Optional[ValidatedZero]
 #   aceptar_cero()         →  Optional[AcceptedZero]
 #
@@ -835,17 +833,17 @@ UMBRAL_ACEPTACION = 0.80   # score mínimo para entrar en SRCE
 @dataclass
 class Candidate:
     """
-    Zona prometedora detectada por Fase 1 (cambio de signo en Z_phase_approx).
+    Zona prometedora detectada por Fase 1 (cambio de signo en Z exacta).
 
-    NO es un cero — es un intervalo donde Z_approx cambia de signo.
-    El nombre deliberado evita la confusión semántica de v2.0 donde
-    --solo-fase devolvía puntos medios etiquetados como "ceros estimados".
+    NO es un cero — es un intervalo [dt_left, dt_right] donde Z(T+dt)
+    cambia de signo en la grilla. Los campos z_phase_* conservan nombre
+    histórico pero guardan Z exacta (Hardy) en los bordes del bracket.
     """
     dt_left:       float   # borde izquierdo del cambio de signo
     dt_right:      float   # borde derecho
     dt_mid:        float   # punto medio (estimado inicial)
-    z_phase_left:  float   # Z_approx en el borde izquierdo
-    z_phase_right: float   # Z_approx en el borde derecho
+    z_phase_left:  float   # Z exacta en dt_left (Fase 1)
+    z_phase_right: float   # Z exacta en dt_right (Fase 1)
     alias_factor:  float   # zero_spacing / (dt_right - dt_left) — debe ser > 2
 
     @property
@@ -993,7 +991,11 @@ def _test_resolution_stability(
         window = cache.zero_spacing * 0.6
         n_pts  = max(20, int(window / dt_fine))
         dt_arr = np.linspace(dt - window/2, dt + window/2, n_pts)
-        Z_arr  = np.array([cache.Z_phase_approx(float(d)) for d in dt_arr])
+        with mp.workdps(cache.dps):
+            Z_arr = np.array([
+                float(Z_exacta(T_big, mp.mpf(str(float(d))), cache))
+                for d in dt_arr
+            ])
         cambios = np.where(Z_arr[:-1] * Z_arr[1:] < 0)[0]
         if len(cambios) == 0:
             return False
@@ -1008,24 +1010,34 @@ def _test_resolution_stability(
 # ── Funciones de cada fase ────────────────────────────────────────────────────
 
 def detectar_candidatos(
+    T_big:      "mp.mpf",
     cache:      "ThetaCache",
     dt_inicio:  float,
     dt_fin:     float,
     verbose:    bool = True,
 ) -> Tuple[List[Candidate], float]:
     """
-    Fase 1: escanea Z_phase_approx y devuelve Candidates (cambios de signo).
+    Fase 1: escanea Z(t) exacta (función Z de Hardy vía mpmath) en una grilla
+    de paso ~dt_safe y devuelve Candidates donde Z cambia de signo.
+
+    No usar Z_phase_approx = 2·cos(θ) para detección: los ceros de Z no
+    coinciden con los de cos(θ) cuando domina la corrección RS.
 
     Returns: (candidatos, t_fase1)
     """
     n_scan  = max(100, int((dt_fin - dt_inicio) / cache.dt_safe) + 1)
     dt_grid = np.linspace(dt_inicio, dt_fin, n_scan)
 
-    t0      = time.perf_counter()
-    Z_phase = np.array([cache.Z_phase_approx(float(dt)) for dt in dt_grid])
+    t0 = time.perf_counter()
+    z_vals: List[float] = []
+    with mp.workdps(cache.dps):
+        for dt in dt_grid:
+            dt_mp = mp.mpf(str(float(dt)))
+            z_vals.append(float(Z_exacta(T_big, dt_mp, cache)))
+    z_arr = np.asarray(z_vals, dtype=float)
     t_fase1 = time.perf_counter() - t0
 
-    cambios_idx = np.where(Z_phase[:-1] * Z_phase[1:] < 0)[0]
+    cambios_idx = np.where(z_arr[:-1] * z_arr[1:] < 0)[0]
 
     candidatos = []
     for idx in cambios_idx:
@@ -1035,14 +1047,14 @@ def detectar_candidatos(
             dt_left       = float(dt_grid[idx]),
             dt_right      = float(dt_grid[idx+1]),
             dt_mid        = float((dt_grid[idx] + dt_grid[idx+1]) / 2),
-            z_phase_left  = float(Z_phase[idx]),
-            z_phase_right = float(Z_phase[idx+1]),
+            z_phase_left  = float(z_arr[idx]),
+            z_phase_right = float(z_arr[idx+1]),
             alias_factor  = alias_f,
         ))
 
     if verbose:
-        print(f"  Fase 1: {len(candidatos)} candidatos en {t_fase1:.2f}s  "
-              f"({t_fase1*1000/n_scan:.2f}ms/punto)")
+        print(f"  Fase 1: {len(candidatos)} candidatos (Z exacta) en {t_fase1:.2f}s  "
+              f"({t_fase1*1000/max(n_scan,1):.2f}ms/punto, n={n_scan})")
 
     return candidatos, t_fase1
 
@@ -1061,13 +1073,15 @@ def validar_candidato(
     del intervalo indica si hay garantía rigurosa de existencia del cero.
     """
     try:
-        with mp.workdps(cache.dps):
-            dt_a_mp = mp.mpf(str(cand.dt_left))
-            dt_b_mp = mp.mpf(str(cand.dt_right))
-            Za = float(Z_exacta(T_big, dt_a_mp, cache))
-            Zb = float(Z_exacta(T_big, dt_b_mp, cache))
-
-        # Confirmar cambio de signo con Z exacta
+        # Reutilizar Z en bordes ya evaluados en Fase 1 (misma grilla / dps).
+        Za = float(cand.z_phase_left)
+        Zb = float(cand.z_phase_right)
+        if Za * Zb >= 0:
+            with mp.workdps(cache.dps):
+                dt_a_mp = mp.mpf(str(cand.dt_left))
+                dt_b_mp = mp.mpf(str(cand.dt_right))
+                Za = float(Z_exacta(T_big, dt_a_mp, cache))
+                Zb = float(Z_exacta(T_big, dt_b_mp, cache))
         if Za * Zb >= 0:
             return None
 
@@ -1260,8 +1274,13 @@ def buscar_ceros_desplazados(
                   f"{'...' if len(failures) > 3 else ''}")
             print(f"    → Fase 1 puede perder ceros en esas zonas — aumentar resolución")
 
-    # ── Fase 1: detectar candidatos ────────────────────────────────────────
-    candidates, t_fase1 = detectar_candidatos(cache, dt_inicio, dt_fin, verbose)
+    with mp.workdps(cache.dps):
+        T_big = cache.T
+
+    # ── Fase 1: detectar candidatos (Z exacta en grilla ~dt_safe) ───────────
+    candidates, t_fase1 = detectar_candidatos(
+        T_big, cache, dt_inicio, dt_fin, verbose,
+    )
 
     if solo_candidatos or not validar:
         # Devolver puntos medios como candidatos — NO como ceros
@@ -1287,10 +1306,7 @@ def buscar_ceros_desplazados(
         }
         return offsets, stats
 
-    # ── Fase 2: validar candidatos ─────────────────────────────────────────
-    with mp.workdps(cache.dps):
-        T_big = cache.T
-
+    # ── Fase 2: validar candidatos (refinamiento secante; signo ya coherente) ─
     validated: List[ValidatedZero] = []
     n_falsos   = 0
     t_fase2    = 0.0

@@ -27,7 +27,8 @@ python -m pytest -q
 **Opcional (evaluación / conteo con Arb vía python-flint):**
 
 ```bash
-pip install -e ".[rigorous]"
+pip install -r srce/requirements-rigorous.txt
+# o: pip install -e "srce/.[rigorous]"
 ```
 
 ## Contenido principal

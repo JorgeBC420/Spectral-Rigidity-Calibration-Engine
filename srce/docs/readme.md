@@ -14,6 +14,8 @@
 | **QUICKSTART.md** | Inicio rápido |
 | **CHANGELOG.md** | Historial de cambios |
 | **AUDITORIA_REPO_2026-05.md** | Auditoría de estado del repo, tests y módulo `rigorous/` |
+| **AUDITORIA_COMPLETA_SRCE_2026-05-18.md** | Auditoría dashboard, K(t), arb_bridge, rs_bounds, zeta (mayo 2026) |
+| **PATCH_KT_IMPORT.diff** | Diff mínimo: import `spectral_form_factor_mehta`, `__init__.py`, `validate_imports` |
 | Otros `*.md` | Auditorías, integración, guías de ferias, certificación, etc. |
 
 ---

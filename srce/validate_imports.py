@@ -17,6 +17,19 @@ Autor: Jorge BC & Claude
 import sys
 from pathlib import Path
 
+
+def _configure_stdio_utf8() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        reconf = getattr(stream, "reconfigure", None)
+        if reconf is not None:
+            try:
+                reconf(encoding="utf-8", errors="replace")
+            except (OSError, ValueError, AttributeError):
+                pass
+
+
+_configure_stdio_utf8()
+
 # Colores para output
 class Colors:
     GREEN = '\033[92m'
@@ -63,6 +76,20 @@ def validate_function(module_name, function_name):
             return False
     except AttributeError:
         print_error(f"  └─ {function_name}() NO EXISTE")
+        return False
+    except Exception as e:
+        print_error(f"  └─ Error: {e}")
+        return False
+
+def validate_attribute(module_name, attribute_name):
+    """Valida que un atributo exista en un módulo, aunque no sea callable."""
+    try:
+        module = __import__(module_name, fromlist=[attribute_name])
+        getattr(module, attribute_name)
+        print_ok(f"  └─ {attribute_name}")
+        return True
+    except AttributeError:
+        print_error(f"  └─ {attribute_name} NO EXISTE")
         return False
     except Exception as e:
         print_error(f"  └─ Error: {e}")
@@ -120,8 +147,10 @@ def main():
         print_ok("solucionador_reimann.py        Módulo cargado")
         
         # Validar funciones específicas
+        if not validate_attribute('solucionador_reimann', 'CACHE'):
+            all_ok = False
+
         motor_functions = [
-            'CACHE',
             'analizar_espaciado_puntual',
             'estudiar_espaciado_vs_N',
             'espaciado_minimo',
