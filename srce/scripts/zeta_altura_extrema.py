@@ -220,6 +220,22 @@ except ImportError:
     reemplazar_backlund_count = None  # type: ignore[misc, assignment]
     _ARB_BACKLUND = False
 
+# ── Certificación / bitácora JSONL ────────────────────────────────────────────
+try:
+    from riemann_spectral.certification import (
+        AcceptanceLevel,
+        CertificateBitacora,
+        ZeroCertificate,
+        FLOAT_SAFE_LOG_T,
+        im_float_if_safe,
+        im_str_for_backend,
+        t_im_from_offset,
+        window_im_mpf,
+    )
+    _CERT_PKG = True
+except ImportError:
+    _CERT_PKG = False
+
 # ── Matplotlib ────────────────────────────────────────────────────────────────
 try:
     import matplotlib
@@ -1178,6 +1194,95 @@ def aceptar_cero(
 
 
 # ============================================================================
+# 5-B. BITÁCORA DE CERTIFICADOS (certificates.jsonl)
+# ============================================================================
+
+def _acceptance_for_accepted(score: float, use_arb: bool, arb_exacto: bool) -> "AcceptanceLevel":
+    if not _CERT_PKG:
+        return AcceptanceLevel.EXPLORATORIO  # type: ignore[name-defined]
+    if use_arb and arb_exacto and score >= UMBRAL_ACEPTACION:
+        return AcceptanceLevel.CERTIFICADO
+    if score >= UMBRAL_ACEPTACION:
+        return AcceptanceLevel.SEMI_RIGUROSO
+    return AcceptanceLevel.EXPLORATORIO
+
+
+def persist_zero_certificates(
+    cache: "ThetaCache",
+    stats: Dict,
+    cert_path: Optional[Path] = None,
+    use_arb: bool = False,
+) -> Optional[Path]:
+    """
+    Escribe certificates.jsonl para auditoría externa (un JSON por línea).
+    """
+    if not _CERT_PKG or cert_path is None:
+        return None
+
+    with mp.workdps(cache.dps):
+        T_str = mp.nstr(cache.T, cache.dps)
+
+    bitacora = CertificateBitacora(cert_path)
+    arb_exacto = bool(
+        stats.get("backlund", {}).get("es_exacto")
+        or stats.get("backlund", {}).get("metodo") == "arb"
+    )
+
+    accepted_by_dt = {a.dt: a for a in stats.get("accepted", [])}
+    validated_by_dt = {v.dt: v for v in stats.get("validated", [])}
+
+    for cand in stats.get("candidates", []):
+        azero = accepted_by_dt.get(cand.dt_mid)
+        vzero = validated_by_dt.get(cand.dt_mid)
+        level = AcceptanceLevel.DIAGNOSTICO
+        score = None
+        if azero is not None:
+            score = azero.score
+            level = _acceptance_for_accepted(score, use_arb, arb_exacto)
+        elif vzero is not None:
+            level = AcceptanceLevel.SEMI_RIGUROSO
+
+        dt_ref = azero.dt if azero else (vzero.dt if vzero else cand.dt_mid)
+        with mp.workdps(cache.dps):
+            t_mpf = t_im_from_offset(cache.T, dt_ref, cache.dps)
+            t_im = im_str_for_backend(t_mpf, cache.dps)
+
+        cert = ZeroCertificate(
+            log_T=cache.log_T,
+            T_anchor_str=T_str,
+            dt_left=cand.dt_left,
+            dt_right=cand.dt_right,
+            dt_refined=dt_ref if (vzero or azero) else None,
+            t_im_str=t_im,
+            acceptance_level=level,
+            quality_score=score,
+            method_backlund=stats.get("backlund", {}).get("metodo", "mpmath"),
+            converged=vzero.converged if vzero else None,
+            residual=vzero.residual if vzero else None,
+            n_iter=vzero.n_iter if vzero else None,
+            id_goedel=azero.id_goedel if azero else None,
+            sign_change_phase1=True,
+            backlund_fiable=stats.get("backlund", {}).get("fiable"),
+            notes=[
+                "Fase1=Z_exacta",
+                f"float_T_safe={cache.log_T <= FLOAT_SAFE_LOG_T}",
+            ],
+        )
+        bitacora.append(cert)
+
+    bitacora.append_run_summary({
+        "log_T": cache.log_T,
+        "T_anchor_str": T_str,
+        "n_candidatos": stats.get("n_candidatos"),
+        "n_validados": stats.get("n_validados"),
+        "n_aceptados": stats.get("n_aceptados"),
+        "backlund_metodo": stats.get("backlund", {}).get("metodo"),
+        "conteo_ok": stats.get("conteo_ok"),
+    })
+    return cert_path
+
+
+# ============================================================================
 # 6. BÚSQUEDA DE CEROS EN VENTANA (Fase 1 + Fase 2)
 # ============================================================================
 
@@ -1235,21 +1340,36 @@ def buscar_ceros_desplazados(
         print(f"  dt_safe = {cache.dt_safe:.6f}  ({alias['recomendacion']})")
 
     # ── Conteo de Backlund — ceros esperados en el intervalo ───────────────
-    T_ini = float(cache.T) + dt_inicio
-    T_fin = float(cache.T) + dt_fin
+    with mp.workdps(cache.dps):
+        t0_mpf, t1_mpf = window_im_mpf(cache.T, dt_inicio, dt_fin, cache.dps)
+    if _CERT_PKG and cache.log_T > FLOAT_SAFE_LOG_T and verbose:
+        print(f"  ℹ log_T={cache.log_T:.1f} > {FLOAT_SAFE_LOG_T}: "
+              f"Backlund/Arb usan float solo como diagnóstico grueso.")
+
+    T_ini, safe_ini = (
+        im_float_if_safe(t0_mpf, cache.log_T, cache.dps)
+        if _CERT_PKG else (float(cache.T) + dt_inicio, cache.log_T <= 12)
+    )
+    T_fin, safe_fin = (
+        im_float_if_safe(t1_mpf, cache.log_T, cache.dps)
+        if _CERT_PKG else (float(cache.T) + dt_fin, cache.log_T <= 12)
+    )
     backlund: Dict
     if use_arb and _ARB_BACKLUND and reemplazar_backlund_count is not None:
         try:
             backlund = reemplazar_backlund_count(T_ini, T_fin, prec=arb_prec)
             backlund["metodo"] = "arb"
+            backlund["float_safe"] = safe_ini and safe_fin
         except Exception as e:
             if verbose:
                 print(f"  ⚠ Arb backlund no disponible ({e}); usando mpmath.")
             backlund = backlund_count(T_ini, T_fin, cache)
             backlund["metodo"] = "mpmath"
+            backlund["float_safe"] = safe_ini and safe_fin
     else:
         backlund = backlund_count(T_ini, T_fin, cache)
         backlund["metodo"] = "mpmath"
+        backlund["float_safe"] = safe_ini and safe_fin
 
     n_esperados = int(round(backlund["delta_N"]))
 
@@ -2146,6 +2266,7 @@ def main(
     dt_inicio:   float = 0.0,
     use_arb:     bool  = False,
     arb_prec:    int   = 256,
+    cert_log:    Optional[Path] = None,
 ) -> None:
 
     out_dir = _SCRIPT_DIR / 'output'
@@ -2199,6 +2320,11 @@ def main(
         use_arb=use_arb,
         arb_prec=arb_prec,
     )
+
+    cert_path = cert_log or (out_dir / "certificates.jsonl")
+    written = persist_zero_certificates(cache, stats, cert_path, use_arb=use_arb)
+    if written:
+        print(f"\n  Bitácora certificados: {written}")
 
     print(f"\n  Ceros encontrados: {len(offsets)}")
 
@@ -2275,7 +2401,11 @@ if __name__ == "__main__":
                         help="Conteo Backlund vía python-flint/Arb (certificado si flint instalado)")
     parser.add_argument("--arb-prec", type=int, default=256,
                         help="Precisión Arb en bits (default: 256)")
+    parser.add_argument("--cert-log", type=str, default=None,
+                        help="Ruta certificates.jsonl (default: scripts/output/certificates.jsonl)")
     args = parser.parse_args()
+
+    cert_log_path = Path(args.cert_log) if args.cert_log else None
 
     main(
         log_T        = args.log_T,
@@ -2286,4 +2416,5 @@ if __name__ == "__main__":
         dt_inicio    = args.dt_inicio,
         use_arb      = args.arb,
         arb_prec     = args.arb_prec,
+        cert_log     = cert_log_path,
     )

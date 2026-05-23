@@ -1,0 +1,20 @@
+# Ejemplo de configuración reproducible SRCE Platform
+seed: 42
+log_level: INFO
+
+rmt:
+  unfolding: spline   # polynomial | spline | kde
+  L_min: 5.0
+  L_max: 30.0
+  n_L_points: 20
+
+zeta:
+  log_T: 3.0
+  n_ceros: 12
+  dps: null
+  use_arb: false
+  cert_log: scripts/output/certificates.jsonl
+
+paths:
+  output_dir: scripts/output
+  bitacora_jsonl: scripts/output/certificates.jsonl

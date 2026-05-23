@@ -5,7 +5,7 @@
 Interfaz web para análisis espectral de ceros de Riemann,
 validación RMT y estudio de rigidez espectral.
 
-Autores: Jorge BC & Claude (Anthropic)
+Autores: Jorge Bravo (JorgeBC420) & Claude (Anthropic)
 Fecha: Febrero 2026
 """
 
@@ -94,6 +94,21 @@ except ImportError as e:
     st.warning(f"⚠️ Módulo de análisis no disponible: {e}")
     st.info("💡 Verifica src/riemann_spectral/")
     RIGIDEZ_DISPONIBLE = False
+
+try:
+    from src.riemann_spectral.analytics.rmt_pipeline import run_rmt_audit, DISCLAIMER_ES
+    from src.riemann_spectral.io.external_loader import (
+        detect_numeric_columns,
+        load_spectrum_bytes,
+        spectrum_from_dataframe,
+    )
+    RMT_EXTERNO_DISPONIBLE = True
+except ImportError:
+    RMT_EXTERNO_DISPONIBLE = False
+    DISCLAIMER_ES = (
+        "SRCE es un motor estadístico para auditoría de regularidades espectrales. "
+        "No demuestra la Hipótesis de Riemann ni conclusiones físicas absolutas."
+    )
 
 # ============================================================================
 # CONFIGURACIÓN Y ESTADO DE SESIÓN
@@ -298,12 +313,13 @@ crear_alerta("warning",
 # TABS PRINCIPALES
 # ============================================================================
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📊 Análisis del Espaciado", 
     "📈 Rigidez Espectral Δ₃", 
     "🔬 Validación RMT",
     "📚 Documentación Matemática",
-    "ℹ️ Acerca de"
+    "ℹ️ Acerca de",
+    "🌐 Dataset externo",
 ])
 
 # ============================================================================
@@ -1520,6 +1536,122 @@ necesitan ajuste. El Analítico (Riemann–von Mangoldt) es la referencia.
 
 
 # ============================================================================
+
+with tab6:
+    st.header("🌐 Auditoría RMT — dataset externo")
+    st.caption(DISCLAIMER_ES)
+    st.info(
+        "Motor estadístico para comparar firmas espectrales (⟨r⟩, Δ₃, clasificador) "
+        "con referencias Poisson / GOE / GUE. No sustituye validación experimental independiente."
+    )
+
+    if not RMT_EXTERNO_DISPONIBLE:
+        st.warning("Módulos `riemann_spectral.io` / `analytics` no disponibles.")
+    else:
+        up = st.file_uploader(
+            "Cargar niveles (CSV, TSV, TXT, JSON, XLSX)",
+            type=["csv", "tsv", "txt", "json", "xlsx", "xls"],
+        )
+        col_u1, col_u2, col_u3 = st.columns(3)
+        with col_u1:
+            unfolding_ext = st.selectbox(
+                "Unfolding",
+                ["spline", "polynomial", "kde"],
+                index=0,
+                help="Elimina tendencia de la CDF empírica antes de estadísticas locales.",
+            )
+        with col_u2:
+            norm_ext = st.checkbox("Normalizar por media", value=False)
+        with col_u3:
+            seed_ext = st.number_input("Semilla (Monte Carlo futuro)", min_value=0, value=0, step=1)
+
+        spec_ext = None
+        if up is not None:
+            try:
+                spec_ext = load_spectrum_bytes(
+                    up.getvalue(),
+                    up.name,
+                    normalize=norm_ext,
+                )
+                cols = spec_ext.numeric_columns
+                if len(cols) > 1:
+                    col_sel = st.selectbox("Columna numérica", cols, index=cols.index(spec_ext.column_name))
+                    if col_sel != spec_ext.column_name:
+                        from io import BytesIO
+                        bio = BytesIO(up.getvalue())
+                        suf = up.name.lower()
+                        if suf.endswith(".json"):
+                            df_up = pd.read_json(bio)
+                        elif suf.endswith((".xlsx", ".xls")):
+                            df_up = pd.read_excel(bio)
+                        else:
+                            sep = "\t" if suf.endswith((".tsv", ".txt")) else ","
+                            df_up = pd.read_csv(bio, sep=sep)
+                        spec_ext = spectrum_from_dataframe(
+                            df_up, column=col_sel, normalize=norm_ext, source_label=up.name
+                        )
+                st.success(
+                    f"Cargados {len(spec_ext.values)} niveles desde `{spec_ext.column_name}` "
+                    f"(NaN omitidos: {spec_ext.n_dropped_nan})"
+                )
+            except Exception as exc:
+                st.error(f"Error al cargar: {exc}")
+                spec_ext = None
+
+            if spec_ext is not None and len(spec_ext.values) >= 10:
+                if st.button("🔬 Ejecutar auditoría RMT", type="primary", key="rmt_ext_btn"):
+                    prog = st.progress(0.0, text="Unfolding y métricas…")
+                    try:
+                        prog.progress(0.35)
+                        audit = run_rmt_audit(
+                            spec_ext.values,
+                            unfolding=unfolding_ext,
+                            seed=int(seed_ext) if seed_ext else None,
+                        )
+                        prog.progress(1.0)
+                        st.session_state["rmt_ext_audit"] = audit
+                    except Exception as exc:
+                        st.error(f"Auditoría falló: {exc}")
+                    finally:
+                        prog.empty()
+
+                audit = st.session_state.get("rmt_ext_audit")
+                if audit is not None:
+                    st.markdown(
+                        f"**Resultado:** dataset compatible con **{audit.classifier_ensemble}** "
+                        f"con confianza **{audit.classifier_confidence_pct:.0f}%** "
+                        f"(⟨r⟩={audit.r_mean:.4f}, etiqueta r: {audit.r_ensemble})."
+                    )
+                    m1, m2, m3, m4 = st.columns(4)
+                    m1.metric("N niveles", audit.n_levels)
+                    m2.metric("α Δ₃ (pendiente)", f"{audit.alpha_delta3:.4f}")
+                    m3.metric("Espaciado medio", f"{audit.spacing_mean:.4f}")
+                    chi = audit.chi2_r2_gue
+                    m4.metric("χ² R₂ vs GUE", f"{chi:.3f}" if chi is not None else "—")
+                    if audit.advertencias:
+                        for w in audit.advertencias:
+                            st.warning(w)
+
+                    fig_st = go.Figure()
+                    fig_st.add_trace(
+                        go.Scatter(
+                            y=spec_ext.values,
+                            mode="lines+markers",
+                            name="Niveles (escalera)",
+                            line=dict(color="#1f77b4"),
+                        )
+                    )
+                    fig_st.update_layout(
+                        title="Escalera espectral (datos cargados)",
+                        xaxis_title="índice",
+                        yaxis_title=spec_ext.column_name,
+                        height=380,
+                    )
+                    st.plotly_chart(fig_st, use_container_width=True)
+
+                    with st.expander("Scores del clasificador"):
+                        st.json(audit.extra.get("scores", {}))
+
 
 with tab4:
     st.header("📚 Documentación Matemática")
