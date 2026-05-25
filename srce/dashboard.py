@@ -110,6 +110,44 @@ except ImportError:
         "No demuestra la Hipótesis de Riemann ni conclusiones físicas absolutas."
     )
 
+# Ventanas avanzadas opcionales del motor SRCE
+try:
+    from src.riemann_spectral.analysis.spectral import (
+        analizar_espectro_completo,
+        analizar_modo_blando,
+        calcular_jacobiano_kernel,
+        energia_log_gas,
+    )
+    from src.riemann_spectral.engine.protocolo_rigidez import (
+        ejecutar_protocolo_escalamiento,
+        ajustar_exponente_critico,
+    )
+    from src.riemann_spectral.engine.baseline_factory import BaselineFactory
+    from src.riemann_spectral.engine.zscore_engine import ZScoreEngine
+    from src.riemann_spectral.analysis.unfolding import unfolding_riemann
+    VENTANAS_AVANZADAS_DISPONIBLES = True
+except ImportError as e:
+    VENTANAS_AVANZADAS_DISPONIBLES = False
+    VENTANAS_AVANZADAS_ERROR = str(e)
+
+try:
+    from src.riemann_spectral.rigorous.rs_bounds import (
+        rs_remainder_bound,
+        rs_tail_bound_scaled,
+        tabla_bounds,
+    )
+    RS_BOUNDS_DISPONIBLE = True
+except ImportError as e:
+    RS_BOUNDS_DISPONIBLE = False
+    RS_BOUNDS_ERROR = str(e)
+
+try:
+    from src.riemann_spectral.rigorous.arb_bridge import get_bridge
+    ARB_BRIDGE_DISPONIBLE = True
+except Exception as e:
+    ARB_BRIDGE_DISPONIBLE = False
+    ARB_BRIDGE_ERROR = str(e)
+
 # ============================================================================
 # CONFIGURACIÓN Y ESTADO DE SESIÓN
 # ============================================================================
@@ -313,13 +351,17 @@ crear_alerta("warning",
 # TABS PRINCIPALES
 # ============================================================================
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
     "📊 Análisis del Espaciado", 
     "📈 Rigidez Espectral Δ₃", 
     "🔬 Validación RMT",
     "📚 Documentación Matemática",
     "ℹ️ Acerca de",
     "🌐 Dataset externo",
+    "🧭 Protocolo de Escalamiento",
+    "🧩 Modo Blando / Jacobiano",
+    "📏 Z-score Baselines",
+    "🧮 Certificación y Bounds",
 ])
 
 # ============================================================================
@@ -1953,6 +1995,330 @@ with tab5:
         - 🏫 Enseñanza universitaria
         - 🔬 Laboratorios de física
         """)
+
+# ============================================================================
+# TAB 7: PROTOCOLO DE ESCALAMIENTO
+# ============================================================================
+
+with tab7:
+    st.header("🧭 Protocolo de Escalamiento")
+    st.caption("Ventana para estudiar cómo cambian gap, energía y modo blando al variar N.")
+
+    if not VENTANAS_AVANZADAS_DISPONIBLES:
+        st.warning(f"Ventanas avanzadas no disponibles: {globals().get('VENTANAS_AVANZADAS_ERROR', 'error desconocido')}")
+    else:
+        colp1, colp2, colp3 = st.columns(3)
+        with colp1:
+            N_min_proto = st.number_input("N mínimo", 50, 2000, 100, 50, key="proto_n_min")
+        with colp2:
+            N_max_proto = st.number_input("N máximo", 100, 5000, 1000, 100, key="proto_n_max")
+        with colp3:
+            pasos_proto = st.slider("Número de escalas", 3, 10, 5, key="proto_steps")
+
+        incluir_riemann_proto = st.checkbox("Incluir Riemann", value=True, key="proto_riemann")
+        realizaciones_gue = st.slider("Realizaciones GUE por N", 1, 10, 3, key="proto_gue_runs")
+
+        if st.button("🚀 Ejecutar protocolo de escalamiento", type="primary", key="proto_run"):
+            try:
+                N_vals = np.unique(np.linspace(N_min_proto, N_max_proto, pasos_proto).astype(int)).tolist()
+                cache_fn = CACHE.obtener if incluir_riemann_proto and MOTOR_DISPONIBLE else None
+                with st.spinner(f"Ejecutando protocolo para N={N_vals}..."):
+                    datos_proto = ejecutar_protocolo_escalamiento(
+                        N_vals,
+                        cache_obtener=cache_fn,
+                        num_realizaciones_gue=realizaciones_gue,
+                    )
+                st.session_state["protocolo_escalamiento"] = datos_proto
+                st.success("✅ Protocolo completado")
+            except Exception as e:
+                st.error(f"❌ Error en protocolo: {e}")
+                if modo_debug:
+                    st.exception(e)
+
+        datos_proto = st.session_state.get("protocolo_escalamiento")
+        if datos_proto:
+            N_vals = np.array(datos_proto["N_values"])
+            espectra = datos_proto["espectra"]
+            modos = datos_proto["modos_blandos"]
+
+            filas_gap = []
+            for sistema, arr in espectra.items():
+                for i, item in enumerate(arr):
+                    if i >= len(N_vals):
+                        continue
+                    filas_gap.append({
+                        "sistema": sistema,
+                        "N": int(N_vals[i]),
+                        "gap": float(item.get("gap", np.nan)),
+                        "energia": float(item.get("energia", np.nan)) if "energia" in item else np.nan,
+                        "gap_std": float(item.get("gap_std", np.nan)) if "gap_std" in item else np.nan,
+                    })
+            df_gap = pd.DataFrame(filas_gap)
+            st.dataframe(df_gap, use_container_width=True, hide_index=True)
+
+            fig_gap = go.Figure()
+            for sistema in df_gap["sistema"].dropna().unique():
+                d = df_gap[df_gap["sistema"] == sistema]
+                fig_gap.add_trace(go.Scatter(
+                    x=d["N"], y=d["gap"], mode="lines+markers", name=sistema,
+                    error_y=dict(type="data", array=d["gap_std"], visible=np.isfinite(d["gap_std"]).any())
+                ))
+            fig_gap.update_layout(title="Gap vs N", xaxis_title="N", yaxis_title="gap", height=420)
+            st.plotly_chart(fig_gap, use_container_width=True)
+
+            fig_log = go.Figure()
+            exponentes = []
+            for sistema in df_gap["sistema"].dropna().unique():
+                d = df_gap[(df_gap["sistema"] == sistema) & np.isfinite(df_gap["gap"]) & (df_gap["gap"] > 0)]
+                fig_log.add_trace(go.Scatter(x=d["N"], y=d["gap"], mode="lines+markers", name=sistema))
+                try:
+                    fit = ajustar_exponente_critico(d["N"].to_numpy(), d["gap"].to_numpy())
+                    if "error" not in fit:
+                        exponentes.append({"sistema": sistema, "alpha": fit["exponente"], "R2": fit["R2"], "C": fit["prefactor"]})
+                except Exception:
+                    pass
+            fig_log.update_layout(title="Gap vs N (log-log)", xaxis_type="log", yaxis_type="log", xaxis_title="N", yaxis_title="gap", height=420)
+            st.plotly_chart(fig_log, use_container_width=True)
+            if exponentes:
+                st.subheader("Ajuste gap ≈ C·N^{-α}")
+                st.dataframe(pd.DataFrame(exponentes), use_container_width=True, hide_index=True)
+
+            if modos:
+                filas_modo = []
+                for sistema, arr in modos.items():
+                    for i, item in enumerate(arr):
+                        if i >= len(N_vals):
+                            continue
+                        filas_modo.append({
+                            "sistema": sistema,
+                            "N": int(N_vals[i]),
+                            "localizacion": item.get("localizacion_index", np.nan),
+                            "corr_senoidal": item.get("correlacion_sinusoidal", np.nan),
+                            "clasificacion": item.get("clasificacion", "—"),
+                        })
+                df_modo = pd.DataFrame(filas_modo)
+                st.subheader("Modo blando por escala")
+                st.dataframe(df_modo, use_container_width=True, hide_index=True)
+                fig_modo = make_subplots(rows=1, cols=2, subplot_titles=("Localización", "Correlación senoidal"))
+                for sistema in df_modo["sistema"].dropna().unique():
+                    d = df_modo[df_modo["sistema"] == sistema]
+                    fig_modo.add_trace(go.Scatter(x=d["N"], y=d["localizacion"], mode="lines+markers", name=sistema), row=1, col=1)
+                    fig_modo.add_trace(go.Scatter(x=d["N"], y=d["corr_senoidal"], mode="lines+markers", name=sistema, showlegend=False), row=1, col=2)
+                fig_modo.update_layout(height=430)
+                st.plotly_chart(fig_modo, use_container_width=True)
+
+
+# ============================================================================
+# TAB 8: MODO BLANDO / JACOBIANO
+# ============================================================================
+
+with tab8:
+    st.header("🧩 Modo Blando / Jacobiano Log-Gas")
+    st.caption("Ventana para explorar el Jacobiano del log-gas, el gap espectral y el vector del modo blando.")
+
+    if not VENTANAS_AVANZADAS_DISPONIBLES:
+        st.warning(f"Ventanas avanzadas no disponibles: {globals().get('VENTANAS_AVANZADAS_ERROR', 'error desconocido')}")
+    else:
+        colj1, colj2, colj3 = st.columns(3)
+        with colj1:
+            tipo_j = st.selectbox("Espectro", ["Riemann", "GUE", "GOE", "Poisson", "Uniforme"], key="jac_tipo")
+        with colj2:
+            N_j = st.slider("N para Jacobiano", 50, 1200, min(300, int(N)), 50, key="jac_n")
+        with colj3:
+            seed_j = st.number_input("Seed", min_value=0, value=42, step=1, key="jac_seed")
+
+        if st.button("🔬 Analizar Jacobiano", type="primary", key="jac_run"):
+            try:
+                rng = np.random.default_rng(int(seed_j))
+                if tipo_j == "Riemann":
+                    gamma_j = CACHE.obtener(int(N_j))
+                elif tipo_j == "GUE":
+                    gamma_j = generar_gue_normalizado(int(N_j))
+                elif tipo_j == "GOE":
+                    gamma_j = generar_goe_normalizado(int(N_j))
+                elif tipo_j == "Poisson":
+                    gamma_j = generar_poisson(int(N_j))
+                else:
+                    from src.riemann_spectral.data.generators import generar_uniforme
+                    gamma_j = generar_uniforme(int(N_j))
+                with st.spinner("Diagonalizando Jacobiano..."):
+                    res_j = analizar_espectro_completo(gamma_j, tipo_j)
+                    modo_j = analizar_modo_blando(res_j)
+                st.session_state["jac_res"] = res_j
+                st.session_state["jac_modo"] = modo_j
+                st.success("✅ Jacobiano analizado")
+            except Exception as e:
+                st.error(f"❌ Error analizando Jacobiano: {e}")
+                if modo_debug:
+                    st.exception(e)
+
+        res_j = st.session_state.get("jac_res")
+        modo_j = st.session_state.get("jac_modo")
+        if res_j:
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("N", res_j.get("N", "—"))
+            m2.metric("gap", f"{res_j.get('gap', np.nan):.3e}")
+            m3.metric("energía log-gas", f"{res_j.get('energia', np.nan):.3e}")
+            m4.metric("cond(J)", f"{res_j.get('cond_J', np.nan):.3e}")
+
+            evals = np.asarray(res_j.get("evals", []), dtype=float)
+            v = np.asarray(res_j.get("v_modo_blando", []), dtype=float)
+            c1, c2 = st.columns(2)
+            with c1:
+                fig_e = go.Figure()
+                fig_e.add_trace(go.Scatter(y=evals, mode="lines+markers", name="autovalores J"))
+                fig_e.update_layout(title="Espectro del Jacobiano", xaxis_title="índice", yaxis_title="λ", height=420)
+                st.plotly_chart(fig_e, use_container_width=True)
+            with c2:
+                fig_v = go.Figure()
+                fig_v.add_trace(go.Scatter(y=v, mode="lines", name="modo blando"))
+                fig_v.update_layout(title="Vector del modo blando", xaxis_title="índice", yaxis_title="amplitud", height=420)
+                st.plotly_chart(fig_v, use_container_width=True)
+
+            if modo_j:
+                st.subheader("Caracterización del modo blando")
+                st.json({k: (float(v) if isinstance(v, (np.floating, float)) else v) for k, v in modo_j.items()})
+
+
+# ============================================================================
+# TAB 9: Z-SCORE BASELINES
+# ============================================================================
+
+with tab9:
+    st.header("📏 Z-score contra baselines GUE / Poisson")
+    st.caption("Compara métricas de Riemann contra distribuciones empíricas generadas por BaselineFactory.")
+
+    if not VENTANAS_AVANZADAS_DISPONIBLES or not MOTOR_DISPONIBLE:
+        st.warning("Z-score no disponible: se requiere motor principal y ventanas avanzadas.")
+    else:
+        colz1, colz2, colz3, colz4 = st.columns(4)
+        with colz1:
+            N_z = st.slider("N", 50, 1000, min(300, int(N)), 50, key="zscore_n")
+        with colz2:
+            reps_z = st.slider("Realizaciones baseline", 10, 200, 30, 10, key="zscore_reps")
+        with colz3:
+            L_var_z = st.number_input("L varianza", 1.0, 20.0, 2.0, 1.0, key="zscore_lvar")
+        with colz4:
+            L_d3_z = st.number_input("L Δ₃", 1.0, 20.0, 2.0, 1.0, key="zscore_ld3")
+
+        metricas_z = st.multiselect("Métricas", ["d_min", "varianza_numero", "delta3"], default=["d_min", "varianza_numero", "delta3"], key="zscore_metrics")
+        if st.button("📏 Evaluar Z-scores", type="primary", key="zscore_run"):
+            try:
+                gamma_z = CACHE.obtener(int(N_z))
+                factory = BaselineFactory(
+                    num_realizaciones_gue=int(reps_z),
+                    num_realizaciones_poisson=int(reps_z),
+                    L_varianza=float(L_var_z),
+                    L_delta3=float(L_d3_z),
+                )
+                engine = ZScoreEngine(factory, L_varianza=float(L_var_z), L_delta3=float(L_d3_z))
+                with st.spinner("Generando baselines y evaluando..."):
+                    out_z = engine.evaluar(gamma_z, int(N_z), metricas=metricas_z)
+                st.session_state["zscore_out"] = out_z
+                st.success("✅ Evaluación completa")
+            except Exception as e:
+                st.error(f"❌ Error en Z-score: {e}")
+                if modo_debug:
+                    st.exception(e)
+
+        out_z = st.session_state.get("zscore_out")
+        if out_z:
+            filas = []
+            for met, r in out_z.items():
+                filas.append({
+                    "métrica": met,
+                    "valor": r.get("valor"),
+                    "z_GUE": r.get("z_gue"),
+                    "p_GUE": r.get("p_gue"),
+                    "conf_GUE": r.get("confianza_gue"),
+                    "z_Poisson": r.get("z_poisson"),
+                    "p_Poisson": r.get("p_poisson"),
+                    "conf_Poisson": r.get("confianza_poi"),
+                    "anomalía": r.get("anomalia"),
+                })
+            df_z = pd.DataFrame(filas)
+            st.dataframe(df_z, use_container_width=True, hide_index=True)
+
+            fig_z = go.Figure()
+            fig_z.add_trace(go.Bar(x=df_z["métrica"], y=df_z["z_GUE"], name="z vs GUE"))
+            fig_z.add_trace(go.Bar(x=df_z["métrica"], y=df_z["z_Poisson"], name="z vs Poisson"))
+            fig_z.add_hline(y=0, line_color="gray")
+            fig_z.add_hline(y=5, line_dash="dash", line_color="red", annotation_text="±5σ")
+            fig_z.add_hline(y=-5, line_dash="dash", line_color="red")
+            fig_z.update_layout(title="Z-scores por métrica", yaxis_title="z-score", barmode="group", height=430)
+            st.plotly_chart(fig_z, use_container_width=True)
+
+            st.info("Los Z-scores dependen del protocolo de unfolding y del número de realizaciones. No son una prueba de RH; sirven para auditar desviaciones frente a baselines controlados.")
+
+
+# ============================================================================
+# TAB 10: CERTIFICACIÓN Y BOUNDS
+# ============================================================================
+
+with tab10:
+    st.header("🧮 Certificación y bounds rigurosos")
+    st.caption("Ventana para explorar cotas Riemann–Siegel y disponibilidad del puente Arb/python-flint.")
+
+    c1, c2 = st.columns(2)
+    with c1:
+        st.metric("RS bounds", "Activo" if RS_BOUNDS_DISPONIBLE else "No disponible")
+    with c2:
+        st.metric("Arb bridge", "Activo" if ARB_BRIDGE_DISPONIBLE else "Fallback/no disponible")
+
+    if not RS_BOUNDS_DISPONIBLE:
+        st.warning(f"rs_bounds no disponible: {globals().get('RS_BOUNDS_ERROR', 'error desconocido')}")
+    else:
+        colb1, colb2, colb3 = st.columns(3)
+        with colb1:
+            t_bound = st.number_input("t", 10.0, 1e8, 1000.0, 100.0, key="bound_t")
+        with colb2:
+            K_bound = st.slider("K máximo", 1, 20, 8, key="bound_k")
+        with colb3:
+            mostrar_tabla = st.checkbox("Mostrar tabla completa", value=True, key="bound_show_table")
+
+        if st.button("🧮 Calcular bounds RS", type="primary", key="bounds_run"):
+            try:
+                filas = []
+                for k in range(1, int(K_bound) + 1):
+                    try:
+                        filas.append({
+                            "K": k,
+                            "RS remainder bound": rs_remainder_bound(float(t_bound), k),
+                            "RS tail scaled": rs_tail_bound_scaled(float(t_bound), k),
+                        })
+                    except Exception as e:
+                        filas.append({"K": k, "RS remainder bound": np.nan, "RS tail scaled": np.nan, "error": str(e)})
+                st.session_state["bounds_df"] = pd.DataFrame(filas)
+            except Exception as e:
+                st.error(f"❌ Error calculando bounds: {e}")
+                if modo_debug:
+                    st.exception(e)
+
+        df_b = st.session_state.get("bounds_df")
+        if df_b is not None:
+            if mostrar_tabla:
+                st.dataframe(df_b, use_container_width=True, hide_index=True)
+            fig_b = go.Figure()
+            if "RS remainder bound" in df_b:
+                fig_b.add_trace(go.Scatter(x=df_b["K"], y=df_b["RS remainder bound"], mode="lines+markers", name="remainder"))
+            if "RS tail scaled" in df_b:
+                fig_b.add_trace(go.Scatter(x=df_b["K"], y=df_b["RS tail scaled"], mode="lines+markers", name="tail scaled"))
+            fig_b.update_layout(title=f"Bounds RS para t={t_bound:g}", xaxis_title="K", yaxis_title="bound", yaxis_type="log", height=430)
+            st.plotly_chart(fig_b, use_container_width=True)
+
+    with st.expander("Diagnóstico Arb bridge"):
+        if ARB_BRIDGE_DISPONIBLE:
+            try:
+                bridge = get_bridge()
+                st.write(f"Bridge activo: `{type(bridge).__name__}`")
+                st.json({"fallback": getattr(bridge, "is_fallback", None), "precision_default": getattr(bridge, "prec", None)})
+            except Exception as e:
+                st.warning(f"No se pudo inicializar bridge: {e}")
+        else:
+            st.warning(f"Arb bridge no disponible: {globals().get('ARB_BRIDGE_ERROR', 'error desconocido')}")
+
+    st.info("Esta ventana es diagnóstica. La certificación rigurosa requiere parámetros de precisión, backend Arb/python-flint y validaciones independientes.")
+
 
 # ============================================================================
 # FOOTER
