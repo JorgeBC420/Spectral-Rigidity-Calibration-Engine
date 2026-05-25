@@ -43,6 +43,22 @@ st.set_page_config(
 # Añadir directorio src al path
 sys.path.insert(0, str(Path(__file__).parent))
 
+# Inicializar banderas y placeholders para evitar errores en entornos incompletos
+MOTOR_DISPONIBLE = False
+RIGIDEZ_DISPONIBLE = False
+RMT_EXTERNO_DISPONIBLE = False
+VENTANAS_AVANZADAS_DISPONIBLES = False
+RS_BOUNDS_DISPONIBLE = False
+ARB_BRIDGE_DISPONIBLE = False
+
+# Dummy CACHE para que `len(CACHE.ceros)` y `CACHE.obtener()` no fallen si el módulo no está disponible.
+class _DummyCache:
+    ceros = []
+    @staticmethod
+    def obtener(n):
+        raise ImportError("solucionador_reimann no disponible en este entorno")
+
+CACHE = _DummyCache()
 # Importar módulos del motor
 try:
     from solucionador_reimann import (
